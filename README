@@ -1,0 +1,9 @@
+z4mod has been created to correct a mistake Samsung has made on their line of Android devices: The RFS filesystem.
+
+The RFS filesystem is a filesystem that attempts to attach metadata onto the ageing FAT standard. This is the filesystem that was used in MS DOS. It has a number of issues, such as requiring linux file metadata to be placed inside seperate files and a very single threaded and badly optimized driver. This leads to strange pauses while using Samsung devices, and a general sluggish feel to operations involving 'disk' access. By changing these partitions to different filesystems, nearly all of these pauses, and the sluggish behaviour, is eliminated.
+
+z4mod is a set of two seperate utilities:
++ An automated kernel patch that will allow the kernel to mount partitions to filesystems other than RFS.
++ Android recovery scripts to transform the partitions from RFS to other filesystems - "update.zip" files.
+
+The online kernel patcher aims to allow anyone without any knowledge of linux the ability to patch a devices kernel in a simple manner. It will also allow for customized update.zip files to be created with an easy to use web interface.
