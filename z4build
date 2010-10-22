@@ -1,0 +1,233 @@
+#!/bin/bash
+###############################################################################
+#
+# z4build by Elia Yehuda, aka z4ziggy, (c) 2010
+# version 0.10
+# part of the z4mod project - a ROM mod without RFS.
+#
+# extracts initramfs from a given zImage, patch it to allow ext2/3/4 mounts,
+# and repack it.
+#
+# Released under the GPLv2
+#
+# many thanks goto various coders & Android hackers out there who made this
+# possible: supercurio, Unhelpful, dkcldark, RyanZA, XDA & modaco forums.
+#
+# WARNING:
+# FOR YOUR OWN SAFETY, IF YOU CAN'T FOLLOW THE SCRIPT, AVOID USING IT.
+# USE AT YOUR OWN RISK! NO WARRANTIES WHAT SO EVER!
+#
+# zImage extraction script copied from here:
+# http://forum.xda-developers.com/wiki/index.php?title=Extract_initramfs_from_zImage
+#
+# kernel_repacker taken from here:
+# http://forum.xda-developers.com/showthread.php?t=789712
+#
+# TODO:
+# - change kernel cmdline to start /z4mod instead of /init
+# - Add a simpler kernel_repacker
+# - Fix the kernel unpacker. It's useless for custom kernels.
+# - Release final version (1.0) only after all TODOs are completed
+#
+###############################################################################
+
+###############################################################################
+#
+# SETTINGS: You must provide valid path to kernel_repacker below
+#
+###############################################################################
+# set -x
+
+# where to find kernel_repack/editor.sh
+KERNEL_REPACKER=/home/ryanza/kernel_repacker/editor-dev.sh
+
+# No need to change anything below this
+
+###############################################################################
+#
+# general functions
+#
+###############################################################################
+
+C_H1="\033[1;37m"        # highlight text 1
+C_ERR="\033[1;31m"
+C_CLEAR="\033[1;0m"
+
+# helper functions:
+
+printhl() {
+	printf "${C_H1}${1}${C_CLEAR} \n"
+}
+
+printerr() {
+	printf "${C_ERR}${1}${C_CLEAR} \n"
+}
+
+exit_error() {
+	printerr "$1"
+	rm -rf ${wrkdir}
+	exit 1
+}
+exit_usage() {
+	printhl "\nUsage:"
+	echo    "  z4build <zImage> [recovery] [root] [busybox]"
+	printhl "\nWhere:"
+	echo    "zImage     = the zImage file (kernel) you wish to patch"
+	#echo    "z4mod      = [optional] install z4mod wrapper for ext2/3/4"
+	echo    "recovery   = [optional] install recovery into initramfs"
+	echo    "root       = [optional] install root into initramfs"
+	echo -e "busybox    = [optional] install busybox into initramfs\n"
+	exit 1
+}
+
+###############################################################################
+#
+# checking parameters and initalize stuff
+#
+###############################################################################
+
+# Making sure we have everything
+zImage=`realpath $1`
+shift
+if [ $# -eq 0 -o $# -gt 3 ]; then
+	printerr "[E] Wrong parameters"
+	exit_usage
+fi
+
+if [ ! -f $zImage ]; then
+	printerr "[E] Can't find kernel: $zImage"
+	exit_usage
+fi
+
+if [ ! -f "${KERNEL_REPACKER}" ]; then
+	exit_error "[E] Can't find kernel_repacker"
+fi
+
+while [ "$*" ]; do
+	eval do_${1}="true"
+        shift
+done
+
+printhl "\n[I] z4build begins, patching $zImage for ext2/3/4 support"
+
+# We can start working
+wrkdir=tmp/z4mod-$$-$RANDOM
+masterdir=`dirname $0`
+mkdir -p ${wrkdir}/initramfs/sbin
+mkdir -p ${wrkdir}/initramfs/dev/block
+
+###############################################################################
+#
+# extract the initramfs.img from zImage
+#
+###############################################################################
+
+# find start of gziped kernel object in the zImage file:
+pos=`grep -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
+printhl "[I] Extracting kernel image from $zImage (start = $pos)"
+# the cpio archive might be gzipped too, so two gunzips could be needed:
+dd if=$zImage bs=1 skip=$pos | gunzip > ${wrkdir}/kernel.img
+pos=`grep -a -b -m 1 --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img | cut -f 1 -d :`
+# find start and end of the "cpio" initramfs image inside the kernel object:
+# ASCII cpio header starts with '070701'
+# The end of the cpio archive is marked with an empty file named TRAILER!!!
+if [ ! $pos = "" ]; then
+	printhl "[I] Extracting compressed cpio image from kernel image (start = $pos)"
+	dd if=${wrkdir}/kernel.img bs=1 skip=$pos | gunzip > ${wrkdir}/cpio.img
+	start=`grep -a -b -m 1 --only-matching '070701' ${wrkdir}/cpio.img | head -1 | cut -f 1 -d :`
+	end=`grep -a -b -m 1 --only-matching 'TRAILER!!!' ${wrkdir}/cpio.img | head -1 | cut -f 1 -d :`
+	inputfile=${wrkdir}/cpio.img
+else
+	printhl "[I] Already uncompressed cpio.img, not decompressing"
+	start=`grep -a -b -m 1 --only-matching '070701' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
+	end=`grep -a -b -m 1 --only-matching 'TRAILER!!!' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
+	inputfile=${wrkdir}/kernel.img
+fi
+
+end=$((end + 10))
+count=$((end - start))
+if (($count < 0)); then
+	exit_error "[E] Couldn't match start/end of the initramfs image."
+fi
+# FIXME:
+count=9999999999
+printhl "[I] Extracting initramfs image from $inputfile (start = $start, end = $end)"
+dd if=$inputfile bs=1 skip=$start count=$count > ${wrkdir}/initramfs.img
+
+###############################################################################
+#
+# extract initramfs.img, patch the binary init, patch the scripts and add 
+# additional mounts
+#
+###############################################################################
+
+printhl "[I] Extracting initramfs compressed image"
+(cd ${wrkdir}/initramfs/; cpio -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
+
+# check if this kernel is patched already with z4build
+if [ -f ${wrkdir}/initramfs/z4mod ] || [ `cmp -s initramfs/init ${wrkdir}/initramfs/init` ]; then
+	exit_error "[E] This kernel is already patched with z4build"
+fi
+
+# backup the init binary
+initfile=${wrkdir}/initramfs/init
+[ -L ${initfile} ] && initfile=${wrkdir}/initramfs/`readlink ${initfile}`
+elf_signature=`file -b ${initfile}`
+if [ "${elf_signature:0:3}" == "ELF" ]; then
+	printhl "[I] Replacing init binary"
+	mv ${initfile} ${wrkdir}/initramfs/sbin/init
+else
+	exit_error "[E] Couldn't find /init executable in the initramfs image"
+fi
+
+# installing initbox or busybox for init
+if [ ! -z "$do_busybox" ]; then
+	# cp busybox and replace initbox in our init wrapper
+	cp -r ${masterdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
+	sed -i 's/initbox/busybox/g' ${wrkdir}/initramfs/init
+else
+	# cp initbot
+	cp -r ${masterdir}/opt/busybox.init/sbin/initbox ${wrkdir}/initramfs/sbin/initbox
+fi
+
+# root
+if [ ! -z "$do_root" ]; then
+	cp -r ${masterdir}/opt/root/system/xbin/su ${wrkdir}/initramfs/sbin/su
+	# TODO:
+	# echo "service installroot onetime to copy superuser.apk" >> init.rc
+fi
+
+# recovery
+if [ ! -z "$do_recovery" ]; then
+	printhl "[I] Replacing recovery"
+	# copy files needed for recovery-2e
+	cp -r ${masterdir}/opt/recovery/* ${wrkdir}/initramfs/
+	# make sure the recovery script will start our new recovery binary
+	sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
+fi
+
+###############################################################################
+#
+# repack the patched initramfs and replace it with orignal initramfs in zImage
+#
+###############################################################################
+# watermark
+touch ${wrkdir}/initramfs/z4mod
+
+printhl "[I] Saving patched initramfs.img"
+(cd ${wrkdir}/initramfs/; find . | cpio -H newc -o | gzip -9 > ${wrkdir}/initramfs.img)
+printhl "[I] Repacking zImage"
+pushd `dirname ${KERNEL_REPACKER}`
+rm -f new_zImage
+${KERNEL_REPACKER} ${zImage} ${wrkdir}/initramfs.img
+popd
+if [ ! -f `dirname ${KERNEL_REPACKER}`/new_zImage ]; then
+	exit_error "[E] Failed building new zImage"
+fi
+printhl "[I] Moving new kernel to current dir"
+mv `dirname ${KERNEL_REPACKER}`/new_zImage $zImage
+
+rm -rf ${wrkdir}
+printhl "[I] Done."
+
+

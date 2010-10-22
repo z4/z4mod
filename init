@@ -1,0 +1,122 @@
+#!/sbin/initbox sh
+#
+# z4mod init wrapper, by Elia Yehuda (c) 2010 GPLv2
+#
+# Loops over partitions to find ext2/3/4 and replace mount command in rc.conf.
+# It extracts info from the ext2/3/4 structure to check for type of ext.
+#
+# added various tweaks from http://forum.xda-developers.com/showthread.php?t=813309
+#
+set -x
+(
+# we must have proc mounted
+initbox mount -t proc none /proc
+initbox mount -t sysfs none /sys
+
+# tweaks by 'hardcore' : http://forum.xda-developers.com/showthread.php?t=813309
+# Tweak cfq io scheduler
+for i in $(initbox ls -1 /sys/block/stl*) $(initbox ls -1 /sys/block/mmc*) $(initbox ls -1 /sys/block/bml*) $(initbox ls -1 /sys/block/tfsr*); do
+	echo "0" > $i/queue/rotational
+	echo "1" > $i/queue/iosched/low_latency
+	echo "1" > $i/queue/iosched/back_seek_penalty
+	echo "1000000000" > $i/queue/iosched/back_seek_max
+	echo "3" > $i/queue/iosched/slice_idle
+done
+
+# Tweak kernel VM management
+echo "0" > /proc/sys/vm/swappiness
+echo "10" > /proc/sys/vm/dirty_ratio
+echo "1000" > /proc/sys/vm/vfs_cache_pressure
+echo "4096" > /proc/sys/vm/min_free_kbytes
+
+# Tweak kernel scheduler
+# echo "2000000" > /proc/sys/kernel/sched_latency_ns
+# echo "500000" > /proc/sys/kernel/sched_wakeup_granularity_ns
+# echo "400000" > /proc/sys/kernel/sched_min_granularity_ns
+# OR less aggressive kernel scheduler tweaks
+echo "4000000" > /proc/sys/kernel/sched_latency_ns
+echo "1000000" > /proc/sys/kernel/sched_wakeup_granularity_ns
+echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
+
+# Miscellaneous tweaks
+setprop dalvik.vm.startheapsize 8m
+setprop wifi.supplicant_scan_interval 90
+
+# device nodes are always nice to have
+# TODO: keep only fs partitions
+initbox mknod /dev/null c 1 3
+initbox mknod /dev/zero c 1 5
+#initbox mknod /dev/block/mmcblk0 b 179 0
+initbox mknod /dev/block/mmcblk0p1 b 179 1
+initbox mknod /dev/block/mmcblk0p2 b 179 2
+#initbox mknod /dev/block/mmcblk1 b 179 8
+initbox mknod /dev/block/stl1 b 138 1
+initbox mknod /dev/block/stl2 b 138 2
+initbox mknod /dev/block/stl3 b 138 3
+initbox mknod /dev/block/stl4 b 138 4
+initbox mknod /dev/block/stl5 b 138 5
+initbox mknod /dev/block/stl6 b 138 6
+initbox mknod /dev/block/stl7 b 138 7
+initbox mknod /dev/block/stl8 b 138 8
+initbox mknod /dev/block/stl9 b 138 9
+initbox mknod /dev/block/stl10 b 138 10
+initbox mknod /dev/block/stl11 b 138 11
+initbox mknod /dev/block/stl12 b 138 12
+
+# if you need to load moudles for your fs, this is the time and place
+
+# setting the variables once
+RO_COMPAT=0x464
+INCOMPAT=0x460
+COMPAT=0x45c
+MAGIC=0x438
+EXT3_FEATURE_COMPAT_HAS_JOURNAL=4
+EXT4_FEATURE_RO_COMPAT_HUGE_FILE=8
+EXT4_FEATURE_RO_COMPAT_GDT_CSUM=16
+EXT4_FEATURE_RO_COMPAT_DIR_NLINK=32
+EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE=64
+EXT4_FEATURE_INCOMPAT_64BIT=128
+EXT4_FEATURE_INCOMPAT_MMP=256
+
+# loop on known partitions, and extract information
+for part in `initbox ls /dev/block/stl* /dev/block/mmcblk0p*`; do
+#for part in /dev/block/stl* /dev/block/mmcblk0p*; do
+	# check if this is an ext2/3/4
+	magic="`initbox dd if=$part skip=$((MAGIC)) bs=1 count=2 2>/dev/null | initbox od -x | initbox sed -e 's/\S* \(\S*\) .*/\1/'`"
+	if [ "${magic}" == "ef53" ]; then 
+		FOUND_NON_RFS="true"
+		# has journal?
+		compat=0x"`initbox dd if=$part skip=$((COMPAT)) bs=1 count=4 2>/dev/null | initbox od -X | initbox sed -e 's/\S* \(\S*\) .*/\1/'`"
+		if [ "$((compat&=EXT3_FEATURE_COMPAT_HAS_JOURNAL))" == "0" ]; then
+			# ext2
+			initbox sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext2 '"${part}"' \1 nosuid nodev noatime nodiratime errors=continue|g' /*.rc
+		else
+			# ext3 or ext4
+			ro_compat=0x"`initbox dd if=$part skip=$((RO_COMPAT)) bs=1 count=4 2>/dev/null | initbox od -X | initbox sed -e 's/\S* \(\S*\) .*/\1/'`"
+			incompat=0x"`initbox dd if=$part skip=$((INCOMPAT)) bs=1 count=4 2>/dev/null | initbox od -X | initbox sed -e 's/\S* \(\S*\) .*/\1/'`"
+			if [ "$((ro_compat&=EXT4_FEATURE_RO_COMPAT_HUGE_FILE))" != "0" -o \
+				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_GDT_CSUM))" != "0" -o \
+				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_DIR_NLINK))" != "0" -o \
+				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE))" != "0" -o \
+				"$((incompat&=EXT4_FEATURE_INCOMPAT_64BIT))" != "0" -o \
+				"$((incompat&=EXT4_FEATURE_INCOMPAT_MMP))" != "0" ]; then
+				# ext4
+				initbox sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext4 '"${part}"' \1 nosuid nodev noatime nodiratime errors=continue|g' /*.rc
+			else
+				# ext3
+				initbox sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext3 '"${part}"' \1 nosuid nodev noatime nodiratime errors=continue|g' /*.rc
+			fi
+		fi
+	fi
+done
+
+# executing original init binary
+if [ "${FOUND_NON_RFS}" == "true" ]; then
+	# patched init to ignore non-RFS
+	initbox sed -i 's/mmcblk0\x00/\x00mcblk0\x00/g;s/mmcblk0p2\x00/\x00mcblk0p2\x00/g' /sbin/init
+fi
+# better to run init with original name 'init' to prevent problems (ie, killall init...)
+#initbox mv /init.org /init
+exec /sbin/init
+
+) >> /z4mod.init.log 2>&1
