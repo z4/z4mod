@@ -124,7 +124,7 @@ if [ "${FOUND_NON_RFS}" == "true" ]; then
 	sed -i 's/mmcblk0\x00/\x00mcblk0\x00/g;s/mmcblk0p2\x00/\x00mcblk0p2\x00/g' /sbin/init
 fi
 # allow a secondary wrapper to be executed
-[ -x /z4mod ] && exec /z4mod
+[ -x /z4mod ] && /z4mod
 # better to run init with original name 'init' to prevent problems (ie, killall init...)
 #busybox.init mv /init.org /init
 exec /sbin/init
