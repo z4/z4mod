@@ -89,14 +89,14 @@ exit_usage() {
 # Making sure we have everything
 zImage=`realpath $1`
 shift
-if [ $# -eq 0 -o $# -gt 3 ]; then
-	printerr "[E] Wrong parameters"
-	exit_usage
-fi
-
 if [ ! -f $zImage ]; then
 	printerr "[E] Can't find kernel: $zImage"
 	exit_usage
+fi
+
+if [ $# -eq 0 -o $# -gt 3 ]; then
+        printerr "[E] Wrong parameters"
+        exit_usage
 fi
 
 if [ ! -f "${KERNEL_REPACKER}" ]; then
@@ -111,8 +111,8 @@ done
 printhl "\n[I] z4build begins, patching $zImage for ext2/3/4 support"
 
 # We can start working
-wrkdir=tmp/z4mod-$$-$RANDOM
-masterdir=`dirname $0`
+wrkdir=`pwd`/tmp/z4mod-$$-$RANDOM
+srcdir=`dirname $0`
 mkdir -p ${wrkdir}/initramfs/sbin
 mkdir -p ${wrkdir}/initramfs/dev/block
 
@@ -183,16 +183,16 @@ fi
 # installing initbox or busybox for init
 if [ ! -z "$do_busybox" ]; then
 	# cp busybox and replace initbox in our init wrapper
-	cp -r ${masterdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
+	cp -r ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
 	sed -i 's/initbox/busybox/g' ${wrkdir}/initramfs/init
 else
 	# cp initbot
-	cp -r ${masterdir}/opt/busybox.init/sbin/initbox ${wrkdir}/initramfs/sbin/initbox
+	cp -r ${srcdir}/opt/busybox.init/sbin/initbox ${wrkdir}/initramfs/sbin/initbox
 fi
 
 # root
 if [ ! -z "$do_root" ]; then
-	cp -r ${masterdir}/opt/root/system/xbin/su ${wrkdir}/initramfs/sbin/su
+	cp -r ${srcdir}/opt/root/system/xbin/su ${wrkdir}/initramfs/sbin/su
 	# TODO:
 	# echo "service installroot onetime to copy superuser.apk" >> init.rc
 fi
@@ -201,18 +201,22 @@ fi
 if [ ! -z "$do_recovery" ]; then
 	printhl "[I] Replacing recovery"
 	# copy files needed for recovery-2e
-	cp -r ${masterdir}/opt/recovery/* ${wrkdir}/initramfs/
+	cp -r ${srcdir}/opt/recovery/* ${wrkdir}/initramfs/
 	# make sure the recovery script will start our new recovery binary
 	sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
 fi
+
+# watermark
+touch ${wrkdir}/initramfs/z4mod
+
+# TODO:
+# extract a user supplied tar ontop ${wrkdir}/initramfs
 
 ###############################################################################
 #
 # repack the patched initramfs and replace it with orignal initramfs in zImage
 #
 ###############################################################################
-# watermark
-touch ${wrkdir}/initramfs/z4mod
 
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio -H newc -o | gzip -9 > ${wrkdir}/initramfs.img)
