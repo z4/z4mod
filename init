@@ -7,15 +7,16 @@
 #
 # added various tweaks from http://forum.xda-developers.com/showthread.php?t=813309
 #
-set -x
-(
-# just shortcuts to make code "readable"
+
+# some aliasses to make the code more readable
 alias mount="busybox.init mount"
 alias dd="busybox.init dd"
 alias sed="busybox.init sed"
 alias od="busybox.init od"
 alias mknod="busybox.init mknod"
 
+set -x
+(
 # we must have proc mounted
 mount -t proc none /proc
 mount -t sysfs none /sys
@@ -37,10 +38,6 @@ echo "1000" > /proc/sys/vm/vfs_cache_pressure
 echo "4096" > /proc/sys/vm/min_free_kbytes
 
 # Tweak kernel scheduler
-# echo "2000000" > /proc/sys/kernel/sched_latency_ns
-# echo "500000" > /proc/sys/kernel/sched_wakeup_granularity_ns
-# echo "400000" > /proc/sys/kernel/sched_min_granularity_ns
-# OR less aggressive kernel scheduler tweaks
 echo "4000000" > /proc/sys/kernel/sched_latency_ns
 echo "1000000" > /proc/sys/kernel/sched_wakeup_granularity_ns
 echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
@@ -85,6 +82,10 @@ EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE=64
 EXT4_FEATURE_INCOMPAT_64BIT=128
 EXT4_FEATURE_INCOMPAT_MMP=256
 
+EXT2_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
+EXT3_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
+EXT4_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
+
 # loop on known partitions, and extract information
 for part in /dev/block/stl* /dev/block/mmcblk0p*; do
 #for part in /dev/block/stl* /dev/block/mmcblk0p*; do
@@ -96,7 +97,7 @@ for part in /dev/block/stl* /dev/block/mmcblk0p*; do
 		compat=0x"`dd if=$part skip=$((COMPAT)) bs=1 count=4 2>/dev/null | od -X | sed -e 's/\S* \(\S*\) .*/\1/'`"
 		if [ "$((compat&=EXT3_FEATURE_COMPAT_HAS_JOURNAL))" == "0" ]; then
 			# ext2
-			sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext2 '"${part}"' \1 nosuid nodev noatime nodiratime errors=continue|g' /*.rc
+			sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext2 '"${part}"' \1 '"${EXT2_MOUNT_OPTIONS}"'|g' /*.rc
 		else
 			# ext3 or ext4
 			ro_compat=0x"`dd if=$part skip=$((RO_COMPAT)) bs=1 count=4 2>/dev/null | od -X | sed -e 's/\S* \(\S*\) .*/\1/'`"
@@ -108,18 +109,18 @@ for part in /dev/block/stl* /dev/block/mmcblk0p*; do
 				"$((incompat&=EXT4_FEATURE_INCOMPAT_64BIT))" != "0" -o \
 				"$((incompat&=EXT4_FEATURE_INCOMPAT_MMP))" != "0" ]; then
 				# ext4
-				sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext4 '"${part}"' \1 nosuid nodev noatime nodiratime errors=continue|g' /*.rc
+				sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext4 '"${part}"' \1 '"${EXT4_MOUNT_OPTIONS}"'|g' /*.rc
 			else
 				# ext3
-				sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext3 '"${part}"' \1 nosuid nodev noatime nodiratime errors=continue|g' /*.rc
+				sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext3 '"${part}"' \1 '"${EXT3_MOUNT_OPTIONS}"'|g' /*.rc
 			fi
 		fi
 	fi
 done
 
-# executing original init binary
+# patching original init binary
 if [ "${FOUND_NON_RFS}" == "true" ]; then
-	# patched init to ignore non-RFS
+	# patch init to ignore non-RFS (and not format it)
 	sed -i 's/mmcblk0\x00/\x00mcblk0\x00/g;s/mmcblk0p2\x00/\x00mcblk0p2\x00/g' /sbin/init
 fi
 # allow a secondary wrapper to be executed
