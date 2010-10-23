@@ -20,8 +20,8 @@ usage()
 
 set_data_filesystem()
 {
-	cp ${masterdir}/z4mod ${wrkdir}/sbin/z4mod
-	cp ${masterdir}/opt/busybox/system/xbin/busybox ${wrkdir}/sbin/busybox
+	cp ${srcdir}/z4mod ${wrkdir}/sbin/z4mod
+	cp ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/sbin/busybox
 	sed -i 's|run_program("sbin/z4mod".*|run_program("sbin/z4mod", "data", "mmcblk0p2", "'$1'");|g' "${script}"
 }
 
@@ -29,21 +29,20 @@ set_data_filesystem()
 [ $# == 0 ] && usage
 [ $# -gt 3 ] && usage
 
-wrkdir=`pwd`/tmp.1
-rm -r $wrkdir
-mkdir -p ${wrkdir}/{sbin,system/{app,xbin}}
-masterdir=`dirname $0`
-cp -r ${masterdir}/META-INF ${wrkdir}/
+srcdir=`dirname $0`
+wrkdir=`pwd`/tmp/z4mod-$$-$RANDOM
 script=${wrkdir}/META-INF/com/google/android/updater-script
+mkdir -p ${wrkdir}/{sbin,system/{app,xbin}}
+cp -r ${srcdir}/META-INF ${wrkdir}/
 
 filename=z4mod
-zinstall="false"
+z4install="false"
 
 while [ "$*" ]; do
 	filename="${filename}.$1"
 	if [ "$1" == "root" -o "$1" == "busybox" ]; then
-		cp -r ${masterdir}/opt/$1/* ${wrkdir}/
-		zinstall="true"
+		cp -r ${srcdir}/opt/$1/* ${wrkdir}/
+		z4install="true"
 	else
 		filesystem="$1"
 	fi
@@ -54,24 +53,25 @@ if [ "${filesystem}" == "rfs" ]; then
 	sed -i 's|run_program("sbin/z4mod".*|run_program("sbin/z4mod", "data", "mmcblk0p2", "rfs");|g' "${script}"
 elif [ "${filesystem}" == "ext2" -o "${filesystem}" == "ext3" -o "${filesystem}" == "ext4" ]; then
 	set_data_filesystem ${filesystem}
-	cp ${masterdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.${filesystem}
-	cp ${masterdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.${filesystem}
+	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.${filesystem}
+	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.${filesystem}
 elif [ "${filesystem}" == "auto" ]; then
 	set_data_filesystem ${filesystem}
-	cp ${masterdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext2
-	cp ${masterdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext2
-	cp ${masterdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext3
-	cp ${masterdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext3
-	cp ${masterdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext4
-	cp ${masterdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext4
+	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext2
+	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext2
+	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext3
+	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext3
+	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext4
+	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext4
 else
 	# remove the z4mod convert section from updater-script
 	sed -i '/# START: z4mod/,/# END: z4mod/d' "${script}"
 fi
 
-if [ ${zinstall} == "false" ]; then
+if [ ${z4install} == "false" ]; then
 	# remove the install section from updater-script
 	sed -i '/# START: Install/,/# END: Install/d' "${script}"
 fi
 
 (cd ${wrkdir}; zip -r ${filename}.update.zip META-INF/ sbin/ system/)
+rm -rf ${wrkdir}
