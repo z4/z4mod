@@ -1,4 +1,4 @@
-#!/sbin/initbox sh
+#!/sbin/busybox sh
 #
 # z4mod, by Elia Yehuda, (c) 2010, GPLv2
 # backup a partition, format, and restore
@@ -22,17 +22,17 @@ halt()
 	exit 1
 }
 
-initbox cat <<EOF
+busybox cat <<EOF
 ###############################################################################
 #
 # Starting z4mod '$3' convert on /$1 (/dev/block/$2)
-# `initbox date`
+# `busybox date`
 #
 ###############################################################################
 EOF
 
 # check we are running under a z4mod-patched initramfs/kernel
-#[ `initbox grep z4mod /*.rc` ] || halt
+#[ `busybox grep z4mod /*.rc` ] || halt
 [ ! -f /z4mod ] && halt
 
 partition="$1"
@@ -40,125 +40,99 @@ devblock="$2"
 filesystem="$3"
 
 if [ "${filesystem:0:3}" == "ext" ]; then
-	[ `initbox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
+	[ `busybox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
 elif [ "$filesystem" == "rfs" ]; then
 	format_cmd=fat.format
 else
 	# defaulting to 'auto'
 	# check which filesystem are supported
-	#[ `initbox grep rfs /proc/filesystems` ] && format_cmd=fat.format
-	[ `initbox grep ext2 /proc/filesystems` ] && filesystem=ext2
-	[ `initbox grep ext3 /proc/filesystems` ] && filesystem=ext3
-	[ `initbox grep ext4 /proc/filesystems` ] && filesystem=ext4
+	#[ `busybox grep rfs /proc/filesystems` ] && format_cmd=fat.format
+	[ `busybox grep ext2 /proc/filesystems` ] && filesystem=ext2
+	[ `busybox grep ext3 /proc/filesystems` ] && filesystem=ext3
+	[ `busybox grep ext4 /proc/filesystems` ] && filesystem=ext4
 	format_cmd=mkfs.${filesystem}
 fi
 
 # check we have all the tools needed
 [ "${format_cmd}" == "" ] && halt
-[ `initbox which ${format_cmd}` ] || halt
-#[ `initbox which parted` ] || halt
+[ `busybox which ${format_cmd}` ] || halt
+#[ `busybox which parted` ] || halt
 #if [ "${filesystem}" != "rfs" ]; then
-#	[ `initbox which fsck.${filesystem}` ] || halt
+#	[ `busybox which fsck.${filesystem}` ] || halt
 #fi
 
 # /system takes special handling before we can unmount it
 # TODO: NOT TESTED YET!
 if [ "${partition}" == "system" ]; then
-	initbox killall adbd
-	initbox killall recovery
+	busybox killall adbd
+	busybox killall recovery
 fi
 
 # we unmount just to make sure target is not mounted already
-initbox umount /${partition}
+busybox umount /${partition}
 # we mount using RFS mount parameters - otherwise it will be mounted as FAT :-)
 if [ "${filesystem}" == "rfs" ]; then
 	# we assume target is ext2/3/4 already
-	initbox mount /dev/block/${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || halt
+	busybox mount /dev/block/${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || halt
 else
 	# we assume target is rfs atm
-	initbox mount /dev/block/${devblock} /${partition} -o nosuid,nodev,check=no || halt
+	busybox mount /dev/block/${devblock} /${partition} -o nosuid,nodev,check=no || halt
 fi
 
 # remove old backup if any
-initbox rm -f /sdcard/${partition}.z4mod.tar
+busybox rm -f /sdcard/${partition}.z4mod.tar
 
 # check for free space (using such a complicated command to overcome a 'df' bug with long lines)
 # get free space on /sdcard
-free_space=`initbox df /dev/block/mmcblk0p1 | initbox tail -n1 | initbox sed 's|/[^ ]*||g' | initbox awk '{print $3}'`
+free_space=`busybox df /dev/block/mmcblk0p1 | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $3}'`
 # get used space on target - we're assuming backup is not compressed...
-backup_size=`initbox df /dev/block/${devblock} | initbox tail -n1 | initbox sed 's|/[^ ]*||g' | initbox awk '{print $2}'`
+backup_size=`busybox df /dev/block/${devblock} | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $2}'`
 [ $backup_size -ge $free_space ] && halt
 
 # backup target - exit on failure
-initbox tar cf /sdcard/${partition}.z4mod.tar /${partition} 
+busybox tar cf /sdcard/${partition}.z4mod.tar /${partition} 
 # for debug:
-initbox echo $?
+busybox echo $?
 
 # umount - exit on failure, no harm is done
-initbox umount /${partition} || halt
+busybox umount /${partition} || halt
 
 # we have to recreate the partition as ext2/3/4 in the partition table
 if [ "${partition}" == "data" ]; then
-	## using parted to change the partition table
-	## backup the current partition table
-	#initbox dd if=/dev/block/mmcblk0 of=/sdcard/mmcblk0.mbr bs=512 count=1
-	## grab the current (RFS) start/end partition layout
-	#start_end=`parted -s /dev/block/mmcblk0 unit B print quit | initbox grep '^ 2' | initbox awk '{print $2,$3}'`
-	## extract the ext type from the mkfs.???? name so we know what ext type are we dealing with
-	##ext_type=${format_cmd/*mkfs./}
-	#ext_type=$filesystem
-	#[ "${filesystem}" == "rfs" ] && ext_type="fat"
-	## remove the 2nd partition, and recreate a primary partition of type ext2/3/4 	
-	#parted -s /dev/block/mmcblk0 rm 2 unit B mkpartfs primary ${ext_type} ${start_end} quit
-	## TODO: need to bail out on error, but parted always returns error...
-	##if [ $? != 0 ]; then
-	##	# restore the partition table
-	##	initbox dd if=/sdcard/mmcblk0.mbr of=/dev/block/mmcblk0 bs=512 count=1
-	##	halt
-	##fi
-	#initbox rm -f /sdcard/mmcblk0.mbr
-
-	# FIXME:
-	# parted does much more than just set partition size and type - it also
-	# writes a basic MBR which I rather it didn't. So, to keep the changes
-	# to the NAND device as few as possible, we use direct-hardcore change
-	# to the partition layout - we flag the partiton type manually. Real
-	# men code in hex :-)            (said the man who coded in bash...)
-
-	# instead of using parted we change fs-type manually
+	# we change fs-type manually in the partition table
 	if [ "${filesystem}" == "rfs" ]; then
 		# flag partition as fat32 for rfs
-		echo -en "\x0C" | initbox dd of=/dev/block/mmcblk0 seek=$((0x1d2))
+		echo -en "\x0C" | busybox dd of=/dev/block/mmcblk0 seek=$((0x1d2))
 	else
 		# flag partition as ext2/3/4
-		echo -en "\x83" | initbox dd of=/dev/block/mmcblk0 seek=$((0x1d2))
+		echo -en "\x83" | busybox dd of=/dev/block/mmcblk0 seek=$((0x1d2))
 	fi
 fi
 
 # Format partition with optimized settings (TODO: restore on error)
 if [ "${filesystem}" == "rfs" ]; then
 	${format_cmd} -F 32 -S 4096 -s 4 /dev/block/${devblock}
-	# trying to mount it either way - using initbox mount as 'backup' mount...
-	mount -o nosuid,nodev,check=no -t rfs /dev/block/${devblock} /${partition} || initbox mount -t rfs /dev/block/${devblock} /${partition} -o nosuid,nodev,check=no
+	# trying to mount it either way - using busybox mount as 'backup' mount...
+	mount -o nosuid,nodev,check=no -t rfs /dev/block/${devblock} /${partition} || busybox mount -t rfs /dev/block/${devblock} /${partition} -o nosuid,nodev,check=no
 else
-	# TODO: "-E lazy_itable_init=1 -O sparse_super,uninit_bg" doesnt work on ext2. maybe initbox mount issue?
+	# TODO: "-E lazy_itable_init=1 -O sparse_super,uninit_bg" doesnt work on ext2. maybe busybox mount issue?
 	${format_cmd} -L ${partition} -b 4096 -m 0 -F /dev/block/${devblock}
 	# tune the filesystem - check every 100 mounts or 30 days
 	tune2fs -c 100 -i 30d -m 0 /dev/block/${devblock}
 	# mount the new filesystem - exit on failure (TODO: restore on error)
-	initbox mount -t ${filesystem} /dev/block/${devblock} /${partition} || halt
+	busybox mount -t ${filesystem} /dev/block/${devblock} /${partition} || halt
 fi
 
 # this is for the logging...
-initbox mount | initbox grep /dev/block/${devblock}
+busybox mount | busybox grep /dev/block/${devblock}
 
 # extract our data back to the new filesystem
-initbox tar xf /sdcard/${partition}.z4mod.tar -C /
+busybox tar xf /sdcard/${partition}.z4mod.tar -C /
 ret=$?
-[ $ret == 0 ] && rm /sdcard/${partition}.z4mod.tar
+[ $ret == 0 ] && busybox rm /sdcard/${partition}.z4mod.tar
 
 # umount
-initbox umount /dev/block/${devblock}
+busybox umount /dev/block/${devblock}
 
 exit $ret
 
