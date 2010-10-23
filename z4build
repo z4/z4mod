@@ -176,18 +176,19 @@ elf_signature=`file -b ${initfile}`
 if [ "${elf_signature:0:3}" == "ELF" ]; then
 	printhl "[I] Replacing init binary"
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
+	cp ${srcdir}/init ${wrkdir}/initramfs/init
 else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
 
 # installing initbox or busybox for init
 if [ ! -z "$do_busybox" ]; then
-	# cp busybox and replace initbox in our init wrapper
-	cp -r ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
-	sed -i 's/initbox/busybox/g' ${wrkdir}/initramfs/init
+	# copy the full-busybox binary, and replace busybox.init in our init wrapper
+	cp ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
+	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/init
 else
-	# cp initbot
-	cp -r ${srcdir}/opt/busybox.init/sbin/initbox ${wrkdir}/initramfs/sbin/initbox
+	# copy the tiny busybox.init
+	cp ${srcdir}/opt/busybox.init/sbin/busybox.init ${wrkdir}/initramfs/sbin/busybox.init
 fi
 
 # root
