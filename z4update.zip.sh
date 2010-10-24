@@ -12,7 +12,7 @@ usage()
 {
 	echo "z4update.zip.sh <filesystem> <root> <busybox>"
 	echo "all parameters are optional:"
-	echo "filesystem = convert filesystem to ext2/ext3/ext4/rfs/auto"
+	echo "filesystem = convert filesystem to ext2/ext3/ext4/jfs/rfs/auto"
 	echo "root       = install root"
 	echo "busybox    = install busybox"
 	exit 1
@@ -51,10 +51,15 @@ done
 
 if [ "${filesystem}" == "rfs" ]; then
 	sed -i 's|run_program("sbin/z4mod".*|run_program("sbin/z4mod", "data", "mmcblk0p2", "rfs");|g' "${script}"
+elif [ "${filesystem}" == "jfs" ]; then
+	set_data_filesystem ${filesystem}
+	cp ${srcdir}/opt/jfsutils/system/xbin/mkfs.jfs ${wrkdir}/system/xbin/mkfs.${filesystem}
+	cp ${srcdir}/opt/jfsutils/system/xbin/fsck.jfs ${wrkdir}/system/xbin/fsck.${filesystem}
 elif [ "${filesystem}" == "ext2" -o "${filesystem}" == "ext3" -o "${filesystem}" == "ext4" ]; then
 	set_data_filesystem ${filesystem}
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.${filesystem}
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.${filesystem}
+	cp -r ${srcdir}/opt/e2fsprogs/system/etc ${wrkdir}/system/
 elif [ "${filesystem}" == "auto" ]; then
 	set_data_filesystem ${filesystem}
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext2
@@ -63,6 +68,7 @@ elif [ "${filesystem}" == "auto" ]; then
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext3
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext4
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext4
+	cp -r ${srcdir}/opt/e2fsprogs/system/etc ${wrkdir}/system/
 else
 	# remove the z4mod convert section from updater-script
 	sed -i '/# START: z4mod/,/# END: z4mod/d' "${script}"

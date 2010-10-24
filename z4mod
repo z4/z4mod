@@ -7,7 +7,7 @@
 #       mount as loop to restore data, dump using redbend_ua/dd for recovery.
 #       It adds a bit of complexity to the code (loop), but _much_ more safe.
 #       OR format the rfs partition back, and restore the tar normally...
-# TODO: Add JFS support
+# TODO: test JFS support
 #
 
 set -x
@@ -40,12 +40,12 @@ filesystem="$3"
 if [ "${filesystem:0:3}" == "ext" ]; then
 	[ `busybox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
 elif [ "$filesystem" == "jfs" ]; then
-	format_cmd=mkfs.jfs
+	[ `busybox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
 elif [ "$filesystem" == "rfs" ]; then
 	format_cmd=fat.format
 else
 	# defaulting to 'auto' - check which filesystem are supported
-	#[ `busybox grep rfs /proc/filesystems` ] && format_cmd=fat.format
+        [ `busybox grep jfs /proc/filesystems` ] && filesystem=jfs
 	[ `busybox grep ext2 /proc/filesystems` ] && filesystem=ext2
 	[ `busybox grep ext3 /proc/filesystems` ] && filesystem=ext3
 	[ `busybox grep ext4 /proc/filesystems` ] && filesystem=ext4
