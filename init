@@ -7,12 +7,13 @@
 #
 
 # some aliasses to make the code more readable
-alias mount="busybox.init mount"
-alias dd="busybox.init dd"
-alias sed="busybox.init sed"
-alias od="busybox.init od"
-alias mknod="busybox.init mknod"
-alias insmod="busybox.init insmod"
+# TODO: check if they are needed if busybox is compiled with FEATURE_SH_STANDALONE
+#alias mount="busybox.init mount"
+#alias dd="busybox.init dd"
+#alias sed="busybox.init sed"
+#alias od="busybox.init od"
+#alias mknod="busybox.init mknod"
+#alias insmod="busybox.init insmod"
 
 set -x
 (
