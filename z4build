@@ -2,10 +2,9 @@
 ###############################################################################
 #
 # z4build by Elia Yehuda, aka z4ziggy, (c) 2010
-# version 0.10
 # part of the z4mod project - a ROM mod without RFS.
 #
-# extracts initramfs from a given zImage, patch it to allow ext2/3/4 mounts,
+# extracts initramfs from a given zImage, patch it to allow non-RFS mounts,
 # and repack it.
 #
 # Released under the GPLv2
