@@ -62,6 +62,8 @@ elif [ "${filesystem}" == "ext2" -o "${filesystem}" == "ext3" -o "${filesystem}"
 	cp -r ${srcdir}/opt/e2fsprogs/system/etc ${wrkdir}/system/
 elif [ "${filesystem}" == "auto" ]; then
 	set_data_filesystem ${filesystem}
+	cp ${srcdir}/opt/jfsutils/system/xbin/mkfs.jfs ${wrkdir}/system/xbin/mkfs.jfs
+	cp ${srcdir}/opt/jfsutils/system/xbin/fsck.jfs ${wrkdir}/system/xbin/fsck.jfs
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext2
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext2
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext3
