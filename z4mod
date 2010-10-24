@@ -7,9 +7,7 @@
 #       mount as loop to restore data, dump using redbend_ua/dd for recovery.
 #       It adds a bit of complexity to the code (loop), but _much_ more safe.
 #       OR format the rfs partition back, and restore the tar normally...
-#
-# RFS format: /system/bin/fat.format -F 32 -S 4096 -s 4 <partition>
-# fails on stl - can't read Cluster size
+# TODO: Add JFS support
 #
 
 set -x
@@ -36,16 +34,17 @@ EOF
 [ ! -f /z4mod ] && halt
 
 partition="$1"
-devblock="$2"
+devblock=/dev/block/"$2"
 filesystem="$3"
 
 if [ "${filesystem:0:3}" == "ext" ]; then
 	[ `busybox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
+elif [ "$filesystem" == "jfs" ]; then
+	format_cmd=mkfs.jfs
 elif [ "$filesystem" == "rfs" ]; then
 	format_cmd=fat.format
 else
-	# defaulting to 'auto'
-	# check which filesystem are supported
+	# defaulting to 'auto' - check which filesystem are supported
 	#[ `busybox grep rfs /proc/filesystems` ] && format_cmd=fat.format
 	[ `busybox grep ext2 /proc/filesystems` ] && filesystem=ext2
 	[ `busybox grep ext3 /proc/filesystems` ] && filesystem=ext3
@@ -56,13 +55,9 @@ fi
 # check we have all the tools needed
 [ "${format_cmd}" == "" ] && halt
 [ `busybox which ${format_cmd}` ] || halt
-#[ `busybox which parted` ] || halt
-#if [ "${filesystem}" != "rfs" ]; then
-#	[ `busybox which fsck.${filesystem}` ] || halt
-#fi
 
 # /system takes special handling before we can unmount it
-# TODO: NOT TESTED YET!
+# FIXME: NOT TESTED YET!
 if [ "${partition}" == "system" ]; then
 	busybox killall adbd
 	busybox killall recovery
@@ -73,10 +68,10 @@ busybox umount /${partition}
 # we mount using RFS mount parameters - otherwise it will be mounted as FAT :-)
 if [ "${filesystem}" == "rfs" ]; then
 	# we assume target is ext2/3/4 already
-	busybox mount /dev/block/${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || halt
+	busybox mount ${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || halt
 else
 	# we assume target is rfs atm
-	busybox mount /dev/block/${devblock} /${partition} -o nosuid,nodev,check=no || halt
+	busybox mount ${devblock} /${partition} -o nosuid,nodev,check=no || halt
 fi
 
 # remove old backup if any
@@ -86,7 +81,7 @@ busybox rm -f /sdcard/${partition}.z4mod.tar
 # get free space on /sdcard
 free_space=`busybox df /dev/block/mmcblk0p1 | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $3}'`
 # get used space on target - we're assuming backup is not compressed...
-backup_size=`busybox df /dev/block/${devblock} | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $2}'`
+backup_size=`busybox df ${devblock} | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $2}'`
 [ $backup_size -ge $free_space ] && halt
 
 # backup target - exit on failure
@@ -111,20 +106,25 @@ fi
 
 # Format partition with optimized settings (TODO: restore on error)
 if [ "${filesystem}" == "rfs" ]; then
-	${format_cmd} -F 32 -S 4096 -s 4 /dev/block/${devblock}
+	${format_cmd} -F 32 -S 4096 -s 4 ${devblock}
 	# trying to mount it either way - using busybox mount as 'backup' mount...
-	mount -o nosuid,nodev,check=no -t rfs /dev/block/${devblock} /${partition} || busybox mount -t rfs /dev/block/${devblock} /${partition} -o nosuid,nodev,check=no
+	mount -o nosuid,nodev,check=no -t rfs ${devblock} /${partition} || busybox mount -t rfs ${devblock} /${partition} -o nosuid,nodev,check=no
+elif [ "${filesystem}" == "jfs" ]; then
+	# jfs format
+	${format_cmd} -L ${partition} -q ${devblock}
+	# jfs mount
+	busybox mount -t ${filesystem} ${devblock} /${partition} || halt
 else
 	# TODO: "-E lazy_itable_init=1 -O sparse_super,uninit_bg" doesnt work on ext2. maybe busybox mount issue?
-	${format_cmd} -L ${partition} -b 4096 -m 0 -F /dev/block/${devblock}
+	${format_cmd} -q -L ${partition} -b 4096 -m 0 -F ${devblock}
 	# tune the filesystem - check every 100 mounts or 30 days
-	tune2fs -c 100 -i 30d -m 0 /dev/block/${devblock}
+	tune2fs -c 100 -i 30d -m 0 ${devblock}
 	# mount the new filesystem - exit on failure (TODO: restore on error)
-	busybox mount -t ${filesystem} /dev/block/${devblock} /${partition} || halt
+	busybox mount -t ${filesystem} ${devblock} /${partition} || halt
 fi
 
 # this is for the logging...
-busybox mount | busybox grep /dev/block/${devblock}
+busybox mount | busybox grep ${devblock}
 
 # extract our data back to the new filesystem
 busybox tar xf /sdcard/${partition}.z4mod.tar -C /
@@ -132,7 +132,7 @@ ret=$?
 [ $ret == 0 ] && busybox rm /sdcard/${partition}.z4mod.tar
 
 # umount
-busybox umount /dev/block/${devblock}
+busybox umount ${devblock}
 
 exit $ret
 
