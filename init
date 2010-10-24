@@ -2,8 +2,8 @@
 #
 # z4mod init wrapper, by Elia Yehuda (c) 2010 GPLv2
 #
-# Loops over partitions to find ext2/3/4 and replace mount command in rc.conf.
-# It extracts info from the ext2/3/4 structure to check for type of ext.
+# Loops over partitions to find jfs/ext2/3/4 and replace mount command in rc.conf.
+# It extracts info from the filesystem structure to check for the correct type.
 #
 
 # some aliasses to make the code more readable
@@ -38,6 +38,8 @@ for module in /lib/modules/*; do
 	insmod $module
 done
 
+# jfs offset
+JFS_MAGIC=0x8000
 # ext2/3/4 offsets
 RO_COMPAT=0x464
 INCOMPAT=0x460
@@ -52,11 +54,7 @@ EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE=64
 EXT4_FEATURE_INCOMPAT_64BIT=128
 EXT4_FEATURE_INCOMPAT_MMP=256
 
-# jfs offset
-JFS_MAGIC=0x8000
-
 # mount options for various filesystem types
-# TODO: add more filesystems
 EXT2_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
 EXT3_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue data=writeback barrier=0"
 EXT4_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue data=writeback barrier=0 noauto_da_alloc"
