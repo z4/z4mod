@@ -20,8 +20,10 @@ usage()
 
 set_data_filesystem()
 {
+	# copy our z4mod converting script and busybox
 	cp ${srcdir}/z4mod ${wrkdir}/sbin/z4mod
 	cp ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/sbin/busybox
+	# set correct filesystem type into the updater-script template
 	sed -i 's|run_program("sbin/z4mod".*|run_program("sbin/z4mod", "data", "mmcblk0p2", "'$1'");|g' "${script}"
 }
 
@@ -49,19 +51,27 @@ while [ "$*" ]; do
 	shift
 done
 
+# copy the appropriate tools according to selected filesystem
 if [ "${filesystem}" == "rfs" ]; then
+	# with rfs we just set the set the filesystem in updater-script, no need to copy any tools
 	sed -i 's|run_program("sbin/z4mod".*|run_program("sbin/z4mod", "data", "mmcblk0p2", "rfs");|g' "${script}"
 elif [ "${filesystem}" == "jfs" ]; then
+	# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
 	set_data_filesystem ${filesystem}
+	# copy required tools
 	cp ${srcdir}/opt/jfsutils/system/xbin/mkfs.jfs ${wrkdir}/system/xbin/mkfs.${filesystem}
 	cp ${srcdir}/opt/jfsutils/system/xbin/fsck.jfs ${wrkdir}/system/xbin/fsck.${filesystem}
 elif [ "${filesystem}" == "ext2" -o "${filesystem}" == "ext3" -o "${filesystem}" == "ext4" ]; then
+	# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
 	set_data_filesystem ${filesystem}
+	# copy required tools
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.${filesystem}
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.${filesystem}
 	cp -r ${srcdir}/opt/e2fsprogs/system/etc ${wrkdir}/system/
 elif [ "${filesystem}" == "auto" ]; then
+	# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
 	set_data_filesystem ${filesystem}
+	# copy required tools
 	cp ${srcdir}/opt/jfsutils/system/xbin/mkfs.jfs ${wrkdir}/system/xbin/mkfs.jfs
 	cp ${srcdir}/opt/jfsutils/system/xbin/fsck.jfs ${wrkdir}/system/xbin/fsck.jfs
 	cp ${srcdir}/opt/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext2
@@ -81,5 +91,8 @@ if [ ${z4install} == "false" ]; then
 	sed -i '/# START: Install/,/# END: Install/d' "${script}"
 fi
 
+# create the update.zip file
 (cd ${wrkdir}; zip -r ${filename}.update.zip META-INF/ sbin/ system/)
+# cleanup
 rm -rf ${wrkdir}
+
