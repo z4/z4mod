@@ -80,7 +80,7 @@ busybox rm -f /sdcard/${partition}.z4mod.tar
 # check for free space (using such a complicated command to overcome a 'df' bug with long lines)
 # get free space on /sdcard
 free_space=`busybox df /dev/block/mmcblk0p1 | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $3}'`
-# get used space on target - we're assuming backup is not compressed...
+# get used space on target
 backup_size=`busybox df ${devblock} | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $2}'`
 [ $backup_size -ge $free_space ] && halt
 
@@ -92,7 +92,7 @@ busybox echo $?
 # umount - exit on failure, no harm is done
 busybox umount /${partition} || halt
 
-# we have to recreate the partition as ext2/3/4 in the partition table
+# for 'data' partition we make sure the filesystem type is flagged in the partition table
 if [ "${partition}" == "data" ]; then
 	# we change fs-type manually in the partition table
 	if [ "${filesystem}" == "rfs" ]; then

@@ -44,7 +44,7 @@ echo "1000000" > /proc/sys/kernel/sched_wakeup_granularity_ns
 echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
 
 # Miscellaneous tweaks
-# FIXME: where to add these?
+# FIXME: this should be executed after init.rc
 #setprop dalvik.vm.startheapsize 8m
 #setprop wifi.supplicant_scan_interval 90
 
@@ -100,7 +100,7 @@ for part in /dev/block/stl* /dev/block/mmcblk0p*; do
 		compat="`dd if=$part skip=$((COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
 		compat=0x"${compat:8:8}"
 		if [ "$((compat&=EXT3_FEATURE_COMPAT_HAS_JOURNAL))" == "0" ]; then
-			# ext2
+			# replace rfs with ext2
 			sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext2 '"${part}"' \1 '"${EXT2_MOUNT_OPTIONS}"'|g' /*.rc
 		else
 			# ext3 or ext4
@@ -114,10 +114,10 @@ for part in /dev/block/stl* /dev/block/mmcblk0p*; do
 				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE))" != "0" -o \
 				"$((incompat&=EXT4_FEATURE_INCOMPAT_64BIT))" != "0" -o \
 				"$((incompat&=EXT4_FEATURE_INCOMPAT_MMP))" != "0" ]; then
-				# ext4
+				# replace rfs with ext4
 				sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext4 '"${part}"' \1 '"${EXT4_MOUNT_OPTIONS}"'|g' /*.rc
 			else
-				# ext3
+				# replace rfs with ext3
 				sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext3 '"${part}"' \1 '"${EXT3_MOUNT_OPTIONS}"'|g' /*.rc
 			fi
 		fi
@@ -125,21 +125,20 @@ for part in /dev/block/stl* /dev/block/mmcblk0p*; do
 		magic="`dd if=$part skip=$((JFS_MAGIC)) bs=1 count=4 2>/dev/null"
 		if [ "${magic:0:4}" == "JFS1" ]; then
 			FOUND_NON_RFS="true"
-			# found a jfs filesystem
+			# replace rfs with jfs
 			sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount jfs '"${part}"' \1 '"${JFS_MOUNT_OPTIONS}"'|g' /*.rc
 		fi
 	fi
 done
 
-# patching original init binary
+# check if we need to patch the init binary
 if [ "${FOUND_NON_RFS}" == "true" ]; then
 	# patch init to ignore non-RFS (and not format it)
 	sed -i 's/mmcblk0\x00/\x00mcblk0\x00/g;s/mmcblk0p2\x00/\x00mcblk0p2\x00/g' /sbin/init
 fi
 # allow a secondary wrapper to be executed
 [ -x /z4mod ] && /z4mod
-# better to run init with original name 'init' to prevent problems (ie, killall init...)
-#busybox.init mv /init.org /init
+# execute init
 exec /sbin/init
 
 ) >> /z4mod.init.log 2>&1

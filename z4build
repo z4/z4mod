@@ -181,7 +181,7 @@ else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
 
-# installing initbox or busybox for init
+# installing either busybox.init or full-busybox for our init wrapper
 if [ ! -z "$do_busybox" ]; then
 	# copy the full-busybox binary, and replace busybox.init in our init wrapper
 	cp ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
