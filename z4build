@@ -177,6 +177,10 @@ if [ "${elf_signature:0:3}" == "ELF" ]; then
 	printhl "[I] Replacing init binary"
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	cp ${srcdir}/init ${wrkdir}/initramfs/init
+	cp ${srcdir}/tweaks.sh ${wrkdir}/initramfs/tweaks.sh
+	# add onetime service to run tweaks.sh at the end of init.rc
+	# FIXME: test this
+	echo -e "\n# Added by z4mod\nservice tweaks /tweaks.sh\n    user root\n    oneshoot\n" >> ${wrkdir}/initramfs/init.rc
 else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
