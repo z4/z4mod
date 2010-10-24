@@ -22,12 +22,6 @@
 # kernel_repacker taken from here:
 # http://forum.xda-developers.com/showthread.php?t=789712
 #
-# TODO:
-# - change kernel cmdline to start /z4mod instead of /init
-# - Add a simpler kernel_repacker
-# - Fix the kernel unpacker. It's useless for custom kernels.
-# - Release final version (1.0) only after all TODOs are completed
-#
 ###############################################################################
 
 ###############################################################################

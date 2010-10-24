@@ -3,12 +3,6 @@
 # z4mod, by Elia Yehuda, (c) 2010, GPLv2
 # backup a partition, format, and restore
 #
-# TODO: Better backup - dump rfs partition as image, 
-#       mount as loop to restore data, dump using redbend_ua/dd for recovery.
-#       It adds a bit of complexity to the code (loop), but _much_ more safe.
-#       OR format the rfs partition back, and restore the tar normally...
-# TODO: test JFS support
-#
 
 set -x
 (
