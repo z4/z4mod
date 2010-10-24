@@ -43,8 +43,9 @@ echo "1000000" > /proc/sys/kernel/sched_wakeup_granularity_ns
 echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
 
 # Miscellaneous tweaks
-setprop dalvik.vm.startheapsize 8m
-setprop wifi.supplicant_scan_interval 90
+# FIXME: where to add these?
+#setprop dalvik.vm.startheapsize 8m
+#setprop wifi.supplicant_scan_interval 90
 
 # device nodes are always nice to have
 # TODO: keep only fs partitions to prevent looping on useless partitions
@@ -67,8 +68,6 @@ mknod /dev/block/stl10 b 138 10
 mknod /dev/block/stl11 b 138 11
 #mknod /dev/block/stl12 b 138 12
 
-# if you need to load moudles for your fs, this is the time and place
-
 # setting the variables once
 RO_COMPAT=0x464
 INCOMPAT=0x460
@@ -82,26 +81,31 @@ EXT4_FEATURE_RO_COMPAT_EXTRA_ISIZE=64
 EXT4_FEATURE_INCOMPAT_64BIT=128
 EXT4_FEATURE_INCOMPAT_MMP=256
 
+# mount options for various filesystem types
+# TODO: add more filesystems
+# TODO: optimize mount options
 EXT2_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
 EXT3_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
 EXT4_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
 
 # loop on known partitions, and extract information
 for part in /dev/block/stl* /dev/block/mmcblk0p*; do
-#for part in /dev/block/stl* /dev/block/mmcblk0p*; do
 	# check if this is an ext2/3/4
-	magic="`dd if=$part skip=$((MAGIC)) bs=1 count=2 2>/dev/null | od -x | sed -e 's/\S* \(\S*\) .*/\1/'`"
-	if [ "${magic}" == "ef53" ]; then 
+	magic="`dd if=$part skip=$((MAGIC)) bs=1 count=2 2>/dev/null | od -x`"
+	if [ "${magic:8:4}" == "ef53" ]; then 
 		FOUND_NON_RFS="true"
 		# has journal?
-		compat=0x"`dd if=$part skip=$((COMPAT)) bs=1 count=4 2>/dev/null | od -X | sed -e 's/\S* \(\S*\) .*/\1/'`"
+		compat="`dd if=$part skip=$((COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
+		compat=0x"${compat:8:8}"
 		if [ "$((compat&=EXT3_FEATURE_COMPAT_HAS_JOURNAL))" == "0" ]; then
 			# ext2
 			sed -i 's|mount rfs '"${part}"' \([^ ]*\) .*|mount ext2 '"${part}"' \1 '"${EXT2_MOUNT_OPTIONS}"'|g' /*.rc
 		else
 			# ext3 or ext4
-			ro_compat=0x"`dd if=$part skip=$((RO_COMPAT)) bs=1 count=4 2>/dev/null | od -X | sed -e 's/\S* \(\S*\) .*/\1/'`"
-			incompat=0x"`dd if=$part skip=$((INCOMPAT)) bs=1 count=4 2>/dev/null | od -X | sed -e 's/\S* \(\S*\) .*/\1/'`"
+			ro_compat="`dd if=$part skip=$((RO_COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
+			ro_compat=0x"${ro_compat:8:8}"
+			incompat="`dd if=$part skip=$((INCOMPAT)) bs=1 count=4 2>/dev/null | od -X`"
+			incompat=0x"${incompat:8:8}"
 			if [ "$((ro_compat&=EXT4_FEATURE_RO_COMPAT_HUGE_FILE))" != "0" -o \
 				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_GDT_CSUM))" != "0" -o \
 				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_DIR_NLINK))" != "0" -o \
