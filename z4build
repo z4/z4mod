@@ -165,18 +165,21 @@ printhl "[I] Extracting initramfs compressed image"
 (cd ${wrkdir}/initramfs/; cpio -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
 
 # check if this kernel is patched already with z4build
-if [ -f ${wrkdir}/initramfs/z4mod ] || [ `cmp -s initramfs/init ${wrkdir}/initramfs/init` ]; then
+if [ -f ${wrkdir}/initramfs/z4mod ] || [ `cmp -s ${srcdir}/init ${wrkdir}/initramfs/init` ]; then
 	exit_error "[E] This kernel is already patched with z4build"
 fi
 
-# backup the init binary
+# make sure for the init binary is an ELF file
 initfile=${wrkdir}/initramfs/init
 [ -L ${initfile} ] && initfile=${wrkdir}/initramfs/`readlink ${initfile}`
 elf_signature=`file -b ${initfile}`
 if [ "${elf_signature:0:3}" == "ELF" ]; then
 	printhl "[I] Replacing init binary"
+	# move original init to sbin
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
+	# and place our init wrapper instead of /init
 	cp ${srcdir}/init ${wrkdir}/initramfs/init
+	# add some tweaks by 'hardcore'
 	cp ${srcdir}/tweaks.sh ${wrkdir}/initramfs/tweaks.sh
 	# add onetime service to run tweaks.sh at the end of init.rc
 	# FIXME: test this
