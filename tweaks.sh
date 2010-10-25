@@ -25,3 +25,8 @@ echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
 setprop dalvik.vm.startheapsize 8m
 setprop wifi.supplicant_scan_interval 90
 
+# copy Superuser.apk if needed
+if [ ! -f /system/app/Superuser.apk ]; then
+	cp /Superuser.apk /system/app/
+fi
+rm /Superuser.apk

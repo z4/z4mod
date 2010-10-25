@@ -179,7 +179,7 @@ if [ -f ${wrkdir}/initramfs/sbin/busybox ] && [ ! -L ${wrkdir}/initramfs/sbin/bu
 	do_busybox="true"
 fi
 
-# make sure for the init binary is an ELF file
+# make sure the init binary is an ELF file
 initfile=${wrkdir}/initramfs/init
 [ -L ${initfile} ] && initfile=${wrkdir}/initramfs/`readlink ${initfile}`
 elf_signature=`file -b ${initfile}`
