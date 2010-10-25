@@ -1,6 +1,8 @@
 #!/sbin/busybox.init sh
-# tweaks by 'hardcore' : http://forum.xda-developers.com/showthread.php?t=813309
+# 
+# do last changes before system starts
 
+# tweaks by 'hardcore' : http://forum.xda-developers.com/showthread.php?t=813309
 # Tweak cfq io scheduler
 for i in /sys/block/stl* /sys/block/mmc* /sys/block/bml* /sys/block/tfsr*; do
         echo "0" > $i/queue/rotational

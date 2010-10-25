@@ -189,11 +189,11 @@ if [ "${elf_signature:0:3}" == "ELF" ]; then
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
 	cp ${srcdir}/init ${wrkdir}/initramfs/init
-	# add some tweaks by 'hardcore'
-	cp ${srcdir}/tweaks.sh ${wrkdir}/initramfs/tweaks.sh
-	# add onetime service to run tweaks.sh at the end of init.rc
+	# copy the post-init script
+	cp ${srcdir}/post.init.sh ${wrkdir}/initramfs/post.init.sh
+	# add onetime service to run post.init.sh at the end of init.rc
 	# FIXME: test this
-	echo -e "\n# Added by z4mod\nservice tweaks /tweaks.sh\n    user root\n    oneshoot\n" >> ${wrkdir}/initramfs/init.rc
+	echo -e "\n# Added by z4mod\nservice z4postinit /post.init.sh\n    user root\n    oneshoot\n" >> ${wrkdir}/initramfs/init.rc
 else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
@@ -203,6 +203,7 @@ if [ ! -z "$do_busybox" ]; then
 	# copy the full-busybox binary, and replace busybox.init in our init wrapper
 	cp ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
 	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/init
+	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/post.init.sh
 else
 	# copy the tiny busybox.init
 	cp ${srcdir}/opt/busybox.init/sbin/busybox.init ${wrkdir}/initramfs/sbin/busybox.init
@@ -210,9 +211,11 @@ fi
 
 # root
 if [ ! -z "$do_root" ]; then
+	# copy su binary
 	cp -r ${srcdir}/opt/root/system/xbin/su ${wrkdir}/initramfs/sbin/su
-	# TODO:
-	# echo "service installroot onetime to copy superuser.apk" >> init.rc
+	# copy the Superuser.apk
+	cp ${srcdir}/opt/root/system/app/Superuser.apk ${wrkdir}/initramfs/
+	# post.init.sh will copy the apk to /system/app if needed
 fi
 
 # recovery
