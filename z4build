@@ -61,15 +61,18 @@ exit_error() {
 	rm -rf ${wrkdir}
 	exit 1
 }
+
 exit_usage() {
 	printhl "\nUsage:"
-	echo    "  z4build <zImage> [recovery] [root] [busybox]"
+	echo    "  z4build <zImage> [recovery] [root] [busybox] [-t <file.tar>]"
 	printhl "\nWhere:"
-	echo    "zImage     = the zImage file (kernel) you wish to patch"
-	#echo    "z4mod      = [optional] install z4mod wrapper for ext2/3/4"
-	echo    "recovery   = [optional] install recovery into initramfs"
-	echo    "root       = [optional] install root into initramfs"
-	echo -e "busybox    = [optional] install busybox into initramfs\n"
+	echo    "zImage      = the zImage file (kernel) you wish to patch"
+	#echo    "z4mod       = [optional] install z4mod wrapper for ext2/3/4"
+	echo    "recovery    = [optional] install recovery into initramfs"
+	echo    "root        = [optional] install root into initramfs"
+	echo    "busybox     = [optional] install busybox into initramfs"
+	echo    "-t file.tar = [optional] extract file.tar over initramfs"
+	echo
 	exit 1
 }
 
@@ -97,7 +100,15 @@ if [ ! -f "${KERNEL_REPACKER}" ]; then
 fi
 
 while [ "$*" ]; do
-	eval do_${1}="true"
+	if [ "$1" == "-t" ]; then
+		shift
+		tarfile=`realpath $1`
+		if [ ! -f "${tarfile}" ]; then
+			exit_error "[E] Can't find user supplied tarfile"
+		fi
+	else
+		eval do_${1}="true"
+	fi
         shift
 done
 
@@ -216,8 +227,10 @@ fi
 # watermark
 touch ${wrkdir}/initramfs/z4mod
 
-# TODO:
-# extract a user supplied tar ontop ${wrkdir}/initramfs
+# if user supplied his own tarfile, extract it now
+if [ ! -z "${tarfile}" ]; then
+	tar xv ${tarfile} -C ${wrkdir}/initramfs/
+fi
 
 ###############################################################################
 #
