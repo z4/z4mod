@@ -29,10 +29,10 @@
 # SETTINGS: You must provide valid path to kernel_repacker below
 #
 ###############################################################################
-# set -x
+#set -x
 
 # where to find kernel_repack/editor.sh
-KERNEL_REPACKER=$HOME/kernel_repacker/editor-dev.sh
+KERNEL_REPACKER=$HOME/code/android/kernel_repacker/editor.sh
 
 # No need to change anything below this
 
@@ -41,6 +41,8 @@ KERNEL_REPACKER=$HOME/kernel_repacker/editor-dev.sh
 # general functions
 #
 ###############################################################################
+
+version=$(< z4version)
 
 C_H1="\033[1;37m"        # highlight text 1
 C_ERR="\033[1;31m"
@@ -90,10 +92,11 @@ if [ ! -f $zImage ]; then
 	exit_usage
 fi
 
-if [ $# -eq 0 -o $# -gt 3 ]; then
-        printerr "[E] Wrong parameters"
-        exit_usage
-fi
+# not needed anymore?
+#if [ $# -eq 0 -o $# -gt 3 ]; then
+#	printerr "[E] Wrong parameters"
+#	exit_usage
+#fi
 
 if [ ! -f "${KERNEL_REPACKER}" ]; then
 	exit_error "[E] Can't find kernel_repacker"
@@ -112,7 +115,7 @@ while [ "$*" ]; do
         shift
 done
 
-printhl "\n[I] z4build begins, patching $zImage for ext2/3/4 support"
+printhl "\n[I] z4build ver-${version} begins, adding non-RFS support to $zImage"
 
 # We can start working
 wrkdir=`pwd`/tmp/z4mod-$$-$RANDOM
@@ -127,11 +130,11 @@ mkdir -p ${wrkdir}/initramfs/dev/block
 ###############################################################################
 
 # find start of gziped kernel object in the zImage file:
-pos=`grep -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
+pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
 printhl "[I] Extracting kernel image from $zImage (start = $pos)"
 # the cpio archive might be gzipped too, so two gunzips could be needed:
 dd if=$zImage bs=1 skip=$pos | gunzip > ${wrkdir}/kernel.img
-pos=`grep -a -b -m 1 --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img | cut -f 1 -d :`
+pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img | cut -f 1 -d :`
 # find start and end of the "cpio" initramfs image inside the kernel object:
 # ASCII cpio header starts with '070701'
 # The end of the cpio archive is marked with an empty file named TRAILER!!!
@@ -190,10 +193,10 @@ if [ -f ${initfile} ]; then
 	# and place our init wrapper instead of /init
 	cp ${srcdir}/init.sh ${wrkdir}/initramfs/init
 	# copy the post-init script
-	cp ${srcdir}/post.init.sh ${wrkdir}/initramfs/post.init.sh
+	cp ${srcdir}/z4post.init.sh ${wrkdir}/initramfs/z4post.init.sh
 	# add onetime service to run post.init.sh at the end of init.rc
 	# FIXME: test this
-	echo -e "\n# Added by z4mod\nservice z4postinit /post.init.sh\n    user root\n    oneshot\n" >> ${wrkdir}/initramfs/init.rc
+	echo -e "\n# Added by z4mod\nservice z4postinit /z4post.init.sh\n    user root\n    oneshot\n" >> ${wrkdir}/initramfs/init.rc
 else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
@@ -203,7 +206,7 @@ if [ ! -z "$do_busybox" ]; then
 	# copy the full-busybox binary, and replace busybox.init in our init wrapper
 	cp ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
 	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/init
-	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/post.init.sh
+	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/z4post.init.sh
 else
 	# copy the tiny busybox.init
 	cp ${srcdir}/opt/busybox.init/sbin/busybox.init ${wrkdir}/initramfs/sbin/busybox.init
@@ -215,7 +218,7 @@ if [ ! -z "$do_root" ]; then
 	cp -r ${srcdir}/opt/root/system/xbin/su ${wrkdir}/initramfs/sbin/su
 	# copy the Superuser.apk
 	cp ${srcdir}/opt/root/system/app/Superuser.apk ${wrkdir}/initramfs/
-	# post.init.sh will copy the apk to /system/app if needed
+	# z4post.init.sh will copy the apk to /system/app if needed
 fi
 
 # recovery
@@ -227,8 +230,8 @@ if [ ! -z "$do_recovery" ]; then
 	sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
 fi
 
-# watermark
-touch ${wrkdir}/initramfs/z4mod
+# store version
+cp ${srcdir}/z4version ${wrkdir}/initramfs/
 
 # if user supplied his own tarfile, extract it now
 if [ ! -z "${tarfile}" ]; then

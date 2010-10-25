@@ -94,7 +94,7 @@ for part in /dev/block/stl* /dev/block/mmcblk0p*; do
 		fi
 	else
 		# check if this is a jfs filesystem
-		magic="`dd if=$part skip=$((JFS_MAGIC)) bs=1 count=4 2>/dev/null"
+		magic="`dd if=$part skip=$((JFS_MAGIC)) bs=1 count=4 2>/dev/null`"
 		if [ "${magic:0:4}" == "JFS1" ]; then
 			FOUND_NON_RFS="true"
 			# replace rfs with jfs
@@ -109,7 +109,7 @@ if [ "${FOUND_NON_RFS}" == "true" ]; then
 	sed -i 's/mmcblk0\x00/\x00mcblk0\x00/g;s/mmcblk0p2\x00/\x00mcblk0p2\x00/g' /sbin/init
 fi
 # allow a secondary wrapper to be executed
-[ -x /z4mod ] && /z4mod
+[ -x /z4pre.init.sh ] && /z4pre.init.sh
 # execute init
 exec /sbin/init
 
