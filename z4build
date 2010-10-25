@@ -169,7 +169,7 @@ printhl "[I] Extracting initramfs compressed image"
 (cd ${wrkdir}/initramfs/; cpio -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
 
 # check if this kernel is patched already with z4build
-if [ -f ${wrkdir}/initramfs/z4mod ] || [ `cmp -s ${srcdir}/init ${wrkdir}/initramfs/init` ]; then
+if [ -f ${wrkdir}/initramfs/z4mod ] || [ `cmp -s ${srcdir}/init.sh ${wrkdir}/initramfs/init` ]; then
 	exit_error "[E] This kernel is already patched with z4build"
 fi
 
