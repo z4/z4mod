@@ -8,7 +8,5 @@ TODO:
          OR format the rfs partition back, and restore the tar normally...
 - z4build: change kernel cmdline to start /z4mod instead of /init
 - z4build: Fix/create a better kernel_repacker
-- z4build: if busybox exists already in initramfs, enable [do_busybox] and link
-           it to our busybox if needed
 - Release final version (1.0) only after all TODOs are completed
 
