@@ -179,11 +179,11 @@ if [ -f ${wrkdir}/initramfs/sbin/busybox ] && [ ! -L ${wrkdir}/initramfs/sbin/bu
 	do_busybox="true"
 fi
 
-# make sure the init binary is an ELF file
-initfile=${wrkdir}/initramfs/init
-[ -L ${initfile} ] && initfile=${wrkdir}/initramfs/`readlink ${initfile}`
-elf_signature=`file -b ${initfile}`
-if [ "${elf_signature:0:3}" == "ELF" ]; then
+# use real path of the init (in case its a symlink)
+initfile=`realpath ${wrkdir}/initramfs/init`
+#elf_signature=`file -b ${initfile}`
+#if [ "${elf_signature:0:3}" == "ELF" ]; then
+if [ -f ${initfile} ]; then
 	printhl "[I] Replacing init binary"
 	# move original init to sbin
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
