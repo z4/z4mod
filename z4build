@@ -193,7 +193,7 @@ if [ -f ${initfile} ]; then
 	cp ${srcdir}/post.init.sh ${wrkdir}/initramfs/post.init.sh
 	# add onetime service to run post.init.sh at the end of init.rc
 	# FIXME: test this
-	echo -e "\n# Added by z4mod\nservice z4postinit /post.init.sh\n    user root\n    oneshoot\n" >> ${wrkdir}/initramfs/init.rc
+	echo -e "\n# Added by z4mod\nservice z4postinit /post.init.sh\n    user root\n    oneshot\n" >> ${wrkdir}/initramfs/init.rc
 else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
