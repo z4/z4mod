@@ -188,7 +188,7 @@ if [ "${elf_signature:0:3}" == "ELF" ]; then
 	# move original init to sbin
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
-	cp ${srcdir}/init ${wrkdir}/initramfs/init
+	cp ${srcdir}/init.sh ${wrkdir}/initramfs/init
 	# copy the post-init script
 	cp ${srcdir}/post.init.sh ${wrkdir}/initramfs/post.init.sh
 	# add onetime service to run post.init.sh at the end of init.rc
