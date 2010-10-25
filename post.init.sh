@@ -27,8 +27,11 @@ echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
 setprop dalvik.vm.startheapsize 8m
 setprop wifi.supplicant_scan_interval 90
 
-# copy Superuser.apk if needed
+# copy Superuser.apk if needed (ie, 1st time we are running on this system)
 if [ ! -f /system/app/Superuser.apk ]; then
+	# copy superuser to /system/app
 	cp /Superuser.apk /system/app/
+	# and install busybox (if exists) to /system/xbin
+	[ -x /sbin/busybox ] && /sbin/busybox --install -s /system/xbin
 fi
 rm /Superuser.apk
