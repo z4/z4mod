@@ -10,11 +10,14 @@
 
 usage() 
 {
-	echo "z4update.zip.sh <filesystem> <root> <busybox>"
+	echo
+	echo "z4update.zip.sh [filesystem] [root] [busybox]"
 	echo "all parameters are optional:"
-	echo "filesystem = convert filesystem to ext2/ext3/ext4/jfs/rfs/auto"
+	echo
+	echo "filesystem = convert filesystem to [ext2/ext3/ext4/jfs/rfs/auto]"
 	echo "root       = install root"
 	echo "busybox    = install busybox"
+	echo
 	exit 1
 }
 

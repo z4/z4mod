@@ -40,3 +40,36 @@ customized update.zip files to be created with an easy to use web interface.
 
 ################################################################################
 
+Howto use:
+
+
+  Patching the kernel.
+
+To patch a zImage file and enable non-RFS mounts on it, use:
+
+$ ./z4build
+
+The above command will show you the usage help. Usually you will use z4build
+like this:
+
+$ ./z4build zImage recovery root
+
+The above command will patch the zImage kernel, and add a new recovery binary,
+followed by adding 'root' functionality to the zImage.
+
+
+
+  Creating update.zip for converting. 
+
+To create update.zip file use:
+
+$ ./z4update.zip.sh
+
+This will show you the usage help. Usually you will use z4update.zip.sh
+like this:
+
+$ ./z4update.zip.sh ext2 root busybox
+
+This will create an update.zip file which will convert the RFS filesystem to
+ext2 and install root and busybox to the target system.
+
