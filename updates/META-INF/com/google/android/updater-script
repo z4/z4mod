@@ -1,0 +1,57 @@
+# z4mod updater-script
+ui_print("");
+ui_print("               _  _     ");
+ui_print("           ___| || |    ");
+ui_print("          |_  / || |_   ");
+ui_print("           / /|__   _|  ");
+ui_print("          /___|  |_| mod");
+ui_print("          by Elia Yehuda");
+ui_print("          (c) 2010 GPLv2");
+ui_print("");
+
+# START: Install 
+
+ui_print("--[ Extracting /system");
+ui_print("");
+mount("MTD", "system", "/system");
+package_extract_dir("system", "/system/");
+set_perm_recursive(0, 0, 0755, 0755, "/system/xbin");
+unmount("system");
+
+# END: Install
+
+# START: z4mod convert
+
+ui_print("--[ Starting convert process");
+ui_print("--[ This WILL take a while...");
+ui_print("");
+
+# we must have /sdcard mounted to host compressed files
+mount("vfat", "/dev/block/mmcblk0p1", "/sdcard");
+assert( is_mounted("/sdcard") || is_mounted("/mnt/sdcard"));
+
+# clean the log on a new run
+delete("/sdcard/z4mod.log");
+
+ui_print("--[ Extracting tools");
+package_extract_dir("sbin", "/sbin/");
+set_perm(0, 0, 04755, "sbin/busybox");
+set_perm(0, 0, 04755, "sbin/z4mod");
+
+show_progress(0.1, 0);
+
+# Start converting partitions
+ui_print("--[ Converting /data");
+ui_print("");
+show_progress(0.8, 180);
+run_program("sbin/z4mod", "data", "mmcblk0p2", "auto");
+
+unmount("sdcard");
+
+# END: z4mod convert
+
+# Finished converting partitions, now we reboot
+ui_print("--[ Done. rebooting now...");
+show_progress(0.1, 0);
+run_program("reboot", "now");
+
