@@ -1,12 +1,12 @@
 TODO:
 
 - test JFS support
+- z4update.zip.sh: add version
 - z4mod: check the lazy_itable_init option
 - z4mod: Better backup - dump rfs partition as image, 
          mount as loop to restore data, dump using redbend_ua/dd for recovery.
          It adds a bit of complexity to the code (loop), but _much_ more safe.
          OR format the rfs partition back, and restore the tar normally...
 - z4build: change kernel cmdline to start /z4mod instead of /init
-- z4build: Fix/create a better kernel_repacker
 - Release final version (1.0) only after all TODOs are completed
 

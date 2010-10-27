@@ -60,6 +60,7 @@ printerr() {
 
 exit_error() {
 	printerr "$1"
+	bash
 	rm -rf ${wrkdir}
 	exit 1
 }
@@ -115,10 +116,10 @@ while [ "$*" ]; do
         shift
 done
 
-printhl "\n[I] z4build ver-${version} begins, adding non-RFS support to $zImage"
+printhl "\n[I] z4build ${version} begins, adding non-RFS support to `basename $zImage`"
 
 # We can start working
-wrkdir=`pwd`/tmp/z4mod-$$-$RANDOM
+wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
 srcdir=`dirname $0`
 mkdir -p ${wrkdir}/initramfs/sbin
 mkdir -p ${wrkdir}/initramfs/dev/block
@@ -158,7 +159,7 @@ if (($count < 0)); then
 fi
 # FIXME:
 count=9999999999
-printhl "[I] Extracting initramfs image from $inputfile (start = $start, end = $end)"
+printhl "[I] Extracting initramfs image from `basename $inputfile` (start = $start, end = $end)"
 dd if=$inputfile bs=1 skip=$start count=$count > ${wrkdir}/initramfs.img
 
 ###############################################################################
@@ -172,7 +173,7 @@ printhl "[I] Extracting initramfs compressed image"
 (cd ${wrkdir}/initramfs/; cpio -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
 
 # check if this kernel is patched already with z4build
-if [ -f ${wrkdir}/initramfs/z4mod ] || [ `cmp -s ${srcdir}/init.sh ${wrkdir}/initramfs/init` ]; then
+if [ -f ${wrkdir}/initramfs/z4mod ] || [ `cmp -s ${srcdir}/initramfs/init.sh ${wrkdir}/initramfs/init` ]; then
 	exit_error "[E] This kernel is already patched with z4build"
 fi
 
@@ -180,6 +181,7 @@ fi
 if [ -f ${wrkdir}/initramfs/sbin/busybox ] && [ ! -L ${wrkdir}/initramfs/sbin/busybox ]; then
 	# enable do_busybox to override existing busybox
 	do_busybox="true"
+	printhl "[I] Flagging busybox overwrite to save space"
 fi
 
 # use real path of the init (in case its a symlink)
@@ -191,33 +193,36 @@ if [ -f ${initfile} ]; then
 	# move original init to sbin
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
-	cp ${srcdir}/init.sh ${wrkdir}/initramfs/init
-	# copy the post-init script
-	cp ${srcdir}/z4post.init.sh ${wrkdir}/initramfs/z4post.init.sh
+	cp ${srcdir}/initramfs/init.sh ${wrkdir}/initramfs/init
+	# copy the pre/post-init script
+	cp ${srcdir}/initramfs/z4post.init.sh ${wrkdir}/initramfs/
+	cp ${srcdir}/initramfs/z4pre.init.sh ${wrkdir}/initramfs/
 	# add onetime service to run post.init.sh at the end of init.rc
 	# FIXME: test this
-	echo -e "\n# Added by z4mod\nservice z4postinit /z4post.init.sh\n    user root\n    oneshot\n" >> ${wrkdir}/initramfs/init.rc
+	#sed -i 's/class_start default/start z4postinit/g' ${wrkdir}/initramfs/init.rc
+	echo -e "\n# Added by z4mod\nservice z4postinit /z4post.init.sh\n  disabled\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
+	echo -e "\non service-exited-z4postinit\n  class_start default\n\n" >> ${wrkdir}/initramfs/init.rc
 else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
 
 # installing either busybox.init or full-busybox for our init wrapper
 if [ ! -z "$do_busybox" ]; then
-	# copy the full-busybox binary, and replace busybox.init in our init wrapper
-	cp ${srcdir}/opt/busybox/system/xbin/busybox ${wrkdir}/initramfs/sbin/busybox
+	printhl "[I] Installing full busybox"
+	# copy the full-busybox binary, and replace busybox.init in our init wrappers
+	cp -r ${srcdir}/initramfs/busybox/* ${wrkdir}/initramfs/
 	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/init
 	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/z4post.init.sh
+	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/z4pre.init.sh
 else
 	# copy the tiny busybox.init
-	cp ${srcdir}/opt/busybox.init/sbin/busybox.init ${wrkdir}/initramfs/sbin/busybox.init
+	cp -r ${srcdir}/initramfs/busybox.init/* ${wrkdir}/initramfs/
 fi
 
 # root
 if [ ! -z "$do_root" ]; then
-	# copy su binary
-	cp -r ${srcdir}/opt/root/system/xbin/su ${wrkdir}/initramfs/sbin/su
-	# copy the Superuser.apk
-	cp ${srcdir}/opt/root/system/app/Superuser.apk ${wrkdir}/initramfs/
+	# copy files for 'root'
+	cp -r ${srcdir}/initramfs/root/* ${wrkdir}/initramfs/
 	# z4post.init.sh will copy the apk to /system/app if needed
 fi
 
@@ -225,7 +230,7 @@ fi
 if [ ! -z "$do_recovery" ]; then
 	printhl "[I] Replacing recovery"
 	# copy files needed for recovery-2e
-	cp -r ${srcdir}/opt/recovery/* ${wrkdir}/initramfs/
+	cp -r ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
 	# make sure the recovery script will start our new recovery binary
 	sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
 fi
@@ -254,7 +259,7 @@ popd
 if [ ! -f `dirname ${KERNEL_REPACKER}`/new_zImage ]; then
 	exit_error "[E] Failed building new zImage"
 fi
-printhl "[I] Moving new kernel to current dir"
+printhl "[I] Saving $zImage"
 mv `dirname ${KERNEL_REPACKER}`/new_zImage $zImage
 
 rm -rf ${wrkdir}
