@@ -7,6 +7,7 @@ ui_print("           / /|__   _|  ");
 ui_print("          /___|  |_| mod");
 ui_print("          by Elia Yehuda");
 ui_print("          (c) 2010 GPLv2");
+ui_print("           Version -git ");
 ui_print("");
 
 # START: Install 

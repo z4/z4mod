@@ -1,7 +1,6 @@
 TODO:
 
 - test JFS support
-- z4update.zip.sh: add version
 - z4mod: check the lazy_itable_init option
 - z4mod: Better backup - dump rfs partition as image, 
          mount as loop to restore data, dump using redbend_ua/dd for recovery.

@@ -56,44 +56,51 @@ while [ "$*" ]; do
 done
 
 # copy the appropriate tools according to selected filesystem
-if [ "${filesystem}" == "rfs" ]; then
-	# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
-	set_data_filesystem ${filesystem}
-elif [ "${filesystem}" == "jfs" ]; then
-	# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
-	set_data_filesystem ${filesystem}
-	# copy required tools
-	cp -r ${srcdir}/updates/jfsutils/* ${wrkdir}/
-elif [ "${filesystem}" == "ext2" -o "${filesystem}" == "ext3" -o "${filesystem}" == "ext4" ]; then
-	# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
-	set_data_filesystem ${filesystem}
-	# copy required tools
-	cp -r ${srcdir}/updates/e2fsprogs/* ${wrkdir}/
-elif [ "${filesystem}" == "auto" ]; then
-	# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
-	set_data_filesystem ${filesystem}
-	# copy required tools
-	cp ${srcdir}/updates/jfsutils/system/xbin/mkfs.jfs ${wrkdir}/system/xbin/mkfs.jfs
-	cp ${srcdir}/updates/jfsutils/system/xbin/fsck.jfs ${wrkdir}/system/xbin/fsck.jfs
-	cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext2
-	cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext2
-	cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext3
-	cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext3
-	cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext4
-	cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext4
-	cp -r ${srcdir}/updates/e2fsprogs/system/etc ${wrkdir}/system/
-else
-	# remove the z4mod convert section from updater-script
-	sed -i '/# START: z4mod/,/# END: z4mod/d' "${script}"
-fi
+case "${filesystem}" in
+	rfs)
+		# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
+		set_data_filesystem ${filesystem}
+		;;
+	jfs)
+		# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
+		set_data_filesystem ${filesystem}
+		# copy required tools
+		cp -r ${srcdir}/updates/jfsutils/* ${wrkdir}/
+		;;
+	ext2|ext3|ext4)
+		# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
+		set_data_filesystem ${filesystem}
+		# copy required tools
+		cp -r ${srcdir}/updates/e2fsprogs/* ${wrkdir}/
+		;;
+	auto)
+		# patch updater-script to relflect choosen filesystem and copy the z4mod convertor
+		set_data_filesystem ${filesystem}
+		# copy required tools
+		cp -r ${srcdir}/updates/jfsutils/* ${wrkdir}/
+		cp -r ${srcdir}/updates/e2fsprogs/* ${wrkdir}/
+		cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext3
+		cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext3
+		cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext4
+		cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext4
+		;;
+	*)
+		# remove the z4mod convert section from updater-script
+		sed -i '/# START: z4mod/,/# END: z4mod/d' "${script}"
+		;;
+esac
 
 if [ ${z4install} == "false" ]; then
 	# remove the install section from updater-script
 	sed -i '/# START: Install/,/# END: Install/d' "${script}"
 fi
 
+# set version in script
+version=$(< z4version)
+sed -i 's/Version .*/Version '$version'\");/g' ${script}
 # create the update.zip file
-(cd ${wrkdir}; zip -r ${filename}.update.zip META-INF/ sbin/ system/)
+curdir=`pwd`
+(cd ${wrkdir}; zip -r $curdir/${filename}.update.zip META-INF/ sbin/ system/)
 # cleanup
 rm -rf ${wrkdir}
 
