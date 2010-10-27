@@ -2,6 +2,9 @@
 # 
 # do last changes before system starts
 
+alias cp="busybox.init cp"
+alias rm="busybox.init rm"
+
 # tweaks by 'hardcore' : http://forum.xda-developers.com/showthread.php?t=813309
 # Tweak cfq io scheduler
 for i in `ls /sys/block/stl* /sys/block/mmc* /sys/block/bml* /sys/block/tfsr*`; do
