@@ -65,7 +65,8 @@ if [ "${filesystem}" == "rfs" ]; then
 	busybox mount ${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || halt
 else
 	# we assume target is rfs atm
-	busybox mount ${devblock} /${partition} -o nosuid,nodev,check=no || halt
+	#busybox mount ${devblock} /${partition} -o nosuid,nodev,check=no || halt
+	mount -o nosuid,nodev,check=no -t rfs ${devblock} /${partition}
 fi
 
 # remove old backup if any
