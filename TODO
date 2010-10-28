@@ -7,5 +7,6 @@ TODO:
          It adds a bit of complexity to the code (loop), but _much_ more safe.
          OR format the rfs partition back, and restore the tar normally...
 - z4build: change kernel cmdline to start /z4mod instead of /init
+- z4build: add zip support along with the tar to -t option
 - Release final version (1.0) only after all TODOs are completed
 
