@@ -32,6 +32,7 @@
 #set -x
 
 # where to find kernel_repack/editor.sh
+# FIXME: Find kernel_repacker dynamically? Should be in the same place as this z4build
 KERNEL_REPACKER=$HOME/code/android/kernel_repacker/editor.sh
 
 # No need to change anything below this
@@ -60,7 +61,6 @@ printerr() {
 
 exit_error() {
 	printerr "$1"
-	bash
 	rm -rf ${wrkdir}
 	exit 1
 }
@@ -133,34 +133,41 @@ mkdir -p ${wrkdir}/initramfs/dev/block
 # find start of gziped kernel object in the zImage file:
 pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
 printhl "[I] Extracting kernel image from $zImage (start = $pos)"
-# the cpio archive might be gzipped too, so two gunzips could be needed:
-dd if=$zImage bs=1 skip=$pos | gunzip > ${wrkdir}/kernel.img
-pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img | cut -f 1 -d :`
-# find start and end of the "cpio" initramfs image inside the kernel object:
-# ASCII cpio header starts with '070701'
-# The end of the cpio archive is marked with an empty file named TRAILER!!!
-if [ ! $pos = "" ]; then
-	printhl "[I] Extracting compressed cpio image from kernel image (start = $pos)"
-	dd if=${wrkdir}/kernel.img bs=1 skip=$pos | gunzip > ${wrkdir}/cpio.img
-	start=`grep -a -b -m 1 --only-matching '070701' ${wrkdir}/cpio.img | head -1 | cut -f 1 -d :`
-	end=`grep -a -b -m 1 --only-matching 'TRAILER!!!' ${wrkdir}/cpio.img | head -1 | cut -f 1 -d :`
-	inputfile=${wrkdir}/cpio.img
-else
-	printhl "[I] Already uncompressed cpio.img, not decompressing"
-	start=`grep -a -b -m 1 --only-matching '070701' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
-	end=`grep -a -b -m 1 --only-matching 'TRAILER!!!' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
-	inputfile=${wrkdir}/kernel.img
-fi
+dd if=$zImage bs=$pos skip=1 | gunzip > ${wrkdir}/kernel.img
 
-end=$((end + 10))
-count=$((end - start))
-if (($count < 0)); then
-	exit_error "[E] Couldn't match start/end of the initramfs image."
+#=======================================================
+# Determine if the cpio inside the zImage is gzipped
+#=======================================================
+cpio_found="FALSE"
+gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img`
+for possible_gzip_start in $gzip_start_arr; do
+	possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
+	dd if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 | gunzip > ${wrkdir}/cpio.img
+	if [ $? -ne 1 ]; then
+		printhl "[I] gzipped archive detected"
+		cpio_found="TRUE"
+		printhl "[I] Using gzipped archive as cpio"
+		mv ${wrkdir}/cpio.img ${wrkdir}/initramfs.img
+		break
+	fi
+done
+
+#===========================================================================
+# If the cpio was not gzipped, we need to find the start
+# find start of the "cpio" initramfs image inside the kernel object:
+# ASCII cpio header starts with '070701'
+#===========================================================================
+if [ "$cpio_found" == "FALSE" ]; then
+	printhl "[I] Finding non gzipped cpio start position"
+	start=`grep -F -a -b -m 1 --only-matching '070701' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
+
+	if [ "$start" == "" ]; then
+		exit_error "[E] Could not detect a CPIO Archive!"
+	fi
+	
+	printhl "[I] Extracting initramfs image from kernel (start = $start)"
+	dd if=${wrkdir}/kernel.img bs=$start skip=1 > ${wrkdir}/initramfs.img
 fi
-# FIXME:
-count=9999999999
-printhl "[I] Extracting initramfs image from `basename $inputfile` (start = $start, end = $end)"
-dd if=$inputfile bs=1 skip=$start count=$count > ${wrkdir}/initramfs.img
 
 ###############################################################################
 #
@@ -252,17 +259,16 @@ fi
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio -H newc -o | gzip -9 > ${wrkdir}/initramfs.img)
 printhl "[I] Repacking zImage"
-pushd `dirname ${KERNEL_REPACKER}`
+pushd ${wrkdir}
 rm -f new_zImage
 ${KERNEL_REPACKER} ${zImage} ${wrkdir}/initramfs.img
 popd
-if [ ! -f `dirname ${KERNEL_REPACKER}`/new_zImage ]; then
+if [ ! -f ${wrkdir}/new_zImage ]; then
 	exit_error "[E] Failed building new zImage"
 fi
 printhl "[I] Saving $zImage"
-mv `dirname ${KERNEL_REPACKER}`/new_zImage $zImage
+mv ${wrkdir}/new_zImage $zImage
 
 rm -rf ${wrkdir}
 printhl "[I] Done."
-
 
