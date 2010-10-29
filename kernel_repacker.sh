@@ -7,8 +7,10 @@
 COMPILER=~/x-tools/arm-z4-linux-gnueabi/bin/arm-z4-linux-gnueabi
 ##############################################################################
 
-FINDZEROS=`dirname $0`/f0.pl
-RESOURCES=`dirname $0`/resources
+srcdic=`dirname $0`
+srcdir=`realpath $srcdir`
+FINDZEROS=$srcdir/f0.pl
+RESOURCES=$srcdir/resources
 
 zImage=$1
 new_ramdisk=$2

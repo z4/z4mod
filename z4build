@@ -31,8 +31,6 @@
 #
 ###############################################################################
 
-KERNEL_REPACKER=`dirname $0`/kernel_repacker.sh
-
 version=$(< z4version)
 
 C_H1="\033[1;37m"        # highlight text 1
@@ -111,6 +109,8 @@ printhl "\n[I] z4build ${version} begins, adding non-RFS support to `basename $z
 # We can start working
 wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
 srcdir=`dirname $0`
+srcdir=`realpath $srcdir`
+KERNEL_REPACKER=$srcdir/kernel_repacker.sh
 mkdir -p ${wrkdir}/initramfs/sbin
 mkdir -p ${wrkdir}/initramfs/dev/block
 
