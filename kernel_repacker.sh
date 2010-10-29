@@ -44,7 +44,10 @@ if [ "$1" == "" -o "$2" == "" ]; then
 	exit_usage
 fi
 
-
+if [ "`which pax`" == "" ]; then
+	printerr "Could not find pax utility. Please install it."
+	exit 1
+fi
 
 #=======================================================
 # find start of gziped kernel object in the zImage file:
