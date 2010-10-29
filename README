@@ -63,12 +63,12 @@ followed by adding 'root' functionality to the zImage.
 
 To create update.zip file use:
 
-$ ./z4update.zip.sh
+$ ./z4zipgen.sh
 
-This will show you the usage help. Usually you will use z4update.zip.sh
+This will show you the usage help. Usually you will use z4zipgen.sh
 like this:
 
-$ ./z4update.zip.sh ext2 root busybox
+$ ./z4zipgen.sh ext2 root busybox
 
 This will create an update.zip file which will convert the RFS filesystem to
 ext2 and install root and busybox to the target system.

@@ -7,7 +7,7 @@ TODO:
          It adds a bit of complexity to the code (loop), but _much_ more safe.
          OR format the rfs partition back, and restore the tar normally...
 - z4build: change kernel cmdline to start /z4mod instead of /init
-- z4update.zip.sh: add support for kernel flashing
-- z4update.zip.sh: add static jfsutils
+- z4zipgen.sh: add support for kernel flashing
+- z4zipgen.sh: add static jfsutils
 - Release final version (1.0) only after all TODOs are completed
 
