@@ -6,8 +6,9 @@
 # you should point where your cross-compiler is         
 COMPILER=~/x-tools/arm-z4-linux-gnueabi/bin/arm-z4-linux-gnueabi
 ##############################################################################
+#set -x
 
-srcdic=`dirname $0`
+srcdir=`dirname $0`
 srcdir=`realpath $srcdir`
 FINDZEROS=$srcdir/f0.pl
 RESOURCES=$srcdir/resources
