@@ -106,9 +106,9 @@ fi
 while [ "$*" ]; do
 	if [ "$1" == "-t" ]; then
 		shift
-		tarfile=`realpath $1`
-		if [ ! -f "${tarfile}" ]; then
-			exit_error "[E] Can't find user supplied tarfile"
+		rootfile=`realpath $1`
+		if [ ! -f "${rootfile}" ]; then
+			exit_error "[E] Can't find user supplied rootfile"
 		fi
 	else
 		eval do_${1}="true"
@@ -245,9 +245,10 @@ fi
 # store version
 cp ${srcdir}/z4version ${wrkdir}/initramfs/
 
-# if user supplied his own tarfile, extract it now
-if [ ! -z "${tarfile}" ]; then
-	tar xv ${tarfile} -C ${wrkdir}/initramfs/
+# if user supplied his own rootfile, extract it now
+if [ ! -z "${rootfile}" ]; then
+	[ "${rootfile:0-3}" == "tar" ] && tar xv ${rootfile} -C ${wrkdir}/initramfs/
+	[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs/
 fi
 
 ###############################################################################
