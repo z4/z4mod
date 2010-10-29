@@ -23,25 +23,15 @@
 # http://forum.xda-developers.com/showthread.php?t=789712
 #
 ###############################################################################
-
-###############################################################################
-#
-# SETTINGS: You must provide valid path to kernel_repacker below
-#
-###############################################################################
 #set -x
-
-# where to find kernel_repack/editor.sh
-# FIXME: Find kernel_repacker dynamically? Should be in the same place as this z4build
-KERNEL_REPACKER=$HOME/code/android/kernel_repacker/editor.sh
-
-# No need to change anything below this
 
 ###############################################################################
 #
 # general functions
 #
 ###############################################################################
+
+KERNEL_REPACKER=`dirname $0`/kernel_repacker.sh
 
 version=$(< z4version)
 

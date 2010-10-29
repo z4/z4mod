@@ -1,0 +1,1 @@
+cmd_arch/arm/mach-s5pc110/built-in.o :=  /home/zero/s5pc1xx/cross/armv7a/bin/arm-s5pc1xx-linux-gnueabi-ld -EL    -r -o arch/arm/mach-s5pc110/built-in.o arch/arm/mach-s5pc110/cpu.o arch/arm/mach-s5pc110/dma.o arch/arm/mach-s5pc110/pm.o arch/arm/mach-s5pc110/setup-sdhci.o arch/arm/mach-s5pc110/mach-jupiter.o arch/arm/mach-s5pc110/jupiter-rfkill.o arch/arm/mach-s5pc110/sec_jack.o 
