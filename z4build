@@ -87,10 +87,6 @@ fi
 #	exit_usage
 #fi
 
-if [ ! -f "${KERNEL_REPACKER}" ]; then
-	exit_error "[E] Can't find kernel_repacker"
-fi
-
 while [ "$*" ]; do
 	if [ "$1" == "-t" ]; then
 		shift
