@@ -104,7 +104,7 @@ printhl "\n[I] z4build ${version} begins, adding non-RFS support to `basename $z
 wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
 srcdir=`dirname $0`
 srcdir=`realpath $srcdir`
-KERNEL_REPACKER=$srcdir/kernel_repacker.sh
+KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 version=`cat ${srcdir}/z4version`
 mkdir -p ${wrkdir}/initramfs/sbin
 mkdir -p ${wrkdir}/initramfs/dev/block
