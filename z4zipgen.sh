@@ -115,6 +115,7 @@ fi
 # set version in script
 version=`cat ${srcdir}/z4version`
 sed -i 's/Version .*/Version '$version'\");/g' ${script}
+sed -i 's/version=.*/version='$version'/g' ${wrkdir}/sbin/z4mod
 # create the update.zip file
 curdir=`pwd`
 (cd ${wrkdir}; zip -r $curdir/${filename}.update.zip META-INF/ sbin/ system/ $zImagefiles)

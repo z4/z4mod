@@ -3,6 +3,7 @@
 # z4mod, by Elia Yehuda, (c) 2010, GPLv2
 # backup a partition, format, and restore
 #
+version=-git
 
 set -x
 (
@@ -17,7 +18,7 @@ halt()
 busybox cat <<EOF
 ###############################################################################
 #
-# Starting z4mod '$3' convert on /$1 (/dev/block/$2)
+# Starting z4mod-$version '$3' convert on /$1 (/dev/block/$2)
 # `busybox date`
 #
 ###############################################################################
