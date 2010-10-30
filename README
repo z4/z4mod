@@ -24,8 +24,8 @@ z4mod is a set of two seperate utilities:
   filesystems - "update.zip" files.
 
 The online  kernel patcher aims to  allow anyone without any  knowledge of linux
-the ability to patch a devices kernel in a simple manner. It will also allow for
-customized update.zip files to be created with an easy to use web interface.
+the ability to patch a devices kernel in a simple manner. It also provides users
+with an easy to use web interface tool to create customized update.zip files.
 
 ################################################################################
 
@@ -36,12 +36,12 @@ Howto use:
 
 To patch a zImage file and enable non-RFS mounts on it, use:
 
-$ ./z4build
+$ ./z4build.sh
 
 The above command will show you the usage help. Usually you will use z4build
 like this:
 
-$ ./z4build zImage recovery root
+$ ./z4build.sh zImage recovery root
 
 The above command will patch the zImage kernel, and add a new recovery binary,
 followed by adding 'root' functionality to the zImage.
