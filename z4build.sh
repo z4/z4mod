@@ -166,6 +166,7 @@ printhl "[I] Extracting initramfs compressed image"
 
 # check if this kernel is patched already with z4build
 if [ -f ${wrkdir}/initramfs/z4version ] || [ `cmp -s ${srcdir}/initramfs/init.sh ${wrkdir}/initramfs/init` ]; then
+	bash
 	exit_error "[E] This kernel is already patched with z4build"
 fi
 

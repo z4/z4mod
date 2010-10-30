@@ -4,6 +4,7 @@
 
 alias cp="busybox.init cp"
 alias rm="busybox.init rm"
+alias ls="busybox.init ls"
 
 # tweaks by 'hardcore' : http://forum.xda-developers.com/showthread.php?t=813309
 # Tweak cfq io scheduler
