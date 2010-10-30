@@ -190,10 +190,7 @@ if [ -f ${initfile} ]; then
 	cp ${srcdir}/initramfs/z4post.init.sh ${wrkdir}/initramfs/
 	cp ${srcdir}/initramfs/z4pre.init.sh ${wrkdir}/initramfs/
 	# add onetime service to run post.init.sh at the end of init.rc
-	# FIXME: test this
-	#sed -i 's/class_start default/start z4postinit/g' ${wrkdir}/initramfs/init.rc
 	echo -e "\n# Added by z4mod\nservice z4postinit /z4post.init.sh\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
-	#echo -e "\non service-exited-z4postinit\n  class_start default\n\n" >> ${wrkdir}/initramfs/init.rc
 else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
