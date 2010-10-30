@@ -5,8 +5,10 @@
 #
 version=-git
 
+# everything is logged into /sdcard/z4mod.log
+exec > /sdcard/z4mod.log 2>&1
+
 set -x
-(
 export PATH=/:/system/xbin:/system/sbin:$PATH
 
 halt()
@@ -131,7 +133,4 @@ ret=$?
 busybox umount ${devblock}
 
 exit $ret
-
-# everything is logged into /sdcard/z4mod.log
-) >> /sdcard/z4mod.log 2>&1
 

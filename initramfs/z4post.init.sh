@@ -42,3 +42,5 @@ rm /Superuser.apk
 # allow user specific init script to be executed
 [ -x /system/z4mod.init.sh ] && /system/z4mod.init.sh
 
+# free 250kb... (using double quotes to make 'sed' ignore this line)
+rm "/sbin/busybox".init

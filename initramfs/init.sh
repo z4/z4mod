@@ -40,7 +40,9 @@ EXT4_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue data=writeba
 JFS_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
 
 set -x
-(
+# redirect all output to /z4mod.init.log
+exec > /z4mod.init.log 2>&1
+
 # we must have proc mounted
 mount -t proc none /proc
 mount -t sysfs none /sys
@@ -128,7 +130,7 @@ done
 
 # check if we need to patch the init binary
 if [ "${FOUND_NON_RFS}" == "true" ]; then
-	# patch init to ignore non-RFS (and not format it)
+	# patch init to ignore non-RFS mmcblk0p2 (and not format it)
 	sed -i 's/mmcblk0\x00/\x00mcblk0\x00/g;s/mmcblk0p2\x00/\x00mcblk0p2\x00/g' /sbin/init
 fi
 # allow a secondary wrapper to be executed
@@ -136,4 +138,3 @@ fi
 # execute init
 exec /sbin/init
 
-) >> /z4mod.init.log 2>&1
