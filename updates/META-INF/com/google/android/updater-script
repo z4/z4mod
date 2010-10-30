@@ -51,6 +51,17 @@ unmount("sdcard");
 
 # END: z4mod convert
 
+# START: Kernel flash
+
+ui_print("--[ Flashing kernel");
+show_progress(0.2, 5);
+package_extract_file("redbend_ua", "redbend_ua");
+package_extract_file("zImage", "zImage");
+set_perm(0, 0, 0755, "redbend_ua");
+run_program("redbend_ua", "restore", "zImage", "/dev/block/bml7");
+
+# END: Kernel flash
+
 # Finished converting partitions, now we reboot
 ui_print("--[ Done. rebooting now...");
 show_progress(0.1, 0);

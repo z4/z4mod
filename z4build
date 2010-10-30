@@ -31,8 +31,6 @@
 #
 ###############################################################################
 
-version=$(< z4version)
-
 C_H1="\033[1;37m"        # highlight text 1
 C_ERR="\033[1;31m"
 C_CLEAR="\033[1;0m"
@@ -107,6 +105,7 @@ wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
 srcdir=`dirname $0`
 srcdir=`realpath $srcdir`
 KERNEL_REPACKER=$srcdir/kernel_repacker.sh
+version=`cat ${srcdir}/z4version`
 mkdir -p ${wrkdir}/initramfs/sbin
 mkdir -p ${wrkdir}/initramfs/dev/block
 
