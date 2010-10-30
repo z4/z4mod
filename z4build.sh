@@ -98,6 +98,9 @@ while [ "$*" ]; do
         shift
 done
 
+# FIXME: For now we make sure we use recovery
+do_recovery="true"
+
 printhl "\n[I] z4build ${version} begins, adding non-RFS support to `basename $zImage`"
 
 # We can start working
@@ -106,7 +109,7 @@ srcdir=`dirname $0`
 srcdir=`realpath $srcdir`
 KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 version=`cat ${srcdir}/z4version`
-mkdir -p ${wrkdir}/initramfs/sbin
+mkdir -p ${wrkdir}/initramfs/{sbin,cache}
 mkdir -p ${wrkdir}/initramfs/dev/block
 
 ###############################################################################
@@ -166,15 +169,18 @@ printhl "[I] Extracting initramfs compressed image"
 
 # check if this kernel is patched already with z4build
 if [ -f ${wrkdir}/initramfs/z4version ] || [ `cmp -s ${srcdir}/initramfs/init.sh ${wrkdir}/initramfs/init` ]; then
-	bash
 	exit_error "[E] This kernel is already patched with z4build"
 fi
 
 # check for existance of busybox in the initramfs
 if [ -f ${wrkdir}/initramfs/sbin/busybox ] && [ ! -L ${wrkdir}/initramfs/sbin/busybox ]; then
 	# enable do_busybox to override existing busybox
-	do_busybox="true"
-	printhl "[I] Flagging busybox overwrite to save space"
+	bb_size=`ls -l ${wrkdir}/initramfs/sbin/busybox  | awk '{print $5}'`
+	bbz_size=`ls -l ${srcdir}/initramfs/busybox/sbin/busybox  | awk '{print $5}'`
+	if [ $bb_size -gt $bbz_size ]; then
+		do_busybox="true"
+		printhl "[W] Flagging busybox overwrite to save space"
+	fi
 fi
 
 # use real path of the init (in case its a symlink)
@@ -196,17 +202,23 @@ else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi
 
+# install recovery
+if [ ! -z "$do_recovery" ]; then
+        printhl "[I] Replacing recovery"
+        # copy files needed for recovery-2e
+        cp -r ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
+        # make sure the recovery script will start our new recovery binary
+        sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
+fi
+
 # installing either busybox.init or full-busybox for our init wrapper
 if [ ! -z "$do_busybox" ]; then
 	printhl "[I] Installing full busybox"
 	# copy the full-busybox binary, and replace busybox.init in our init wrappers
 	cp -r ${srcdir}/initramfs/busybox/* ${wrkdir}/initramfs/
-	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/init
-	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/z4post.init.sh
-	sed -i 's/busybox.init/busybox/g' ${wrkdir}/initramfs/z4pre.init.sh
 else
-	# copy the tiny busybox.init
-	cp -r ${srcdir}/initramfs/busybox.init/* ${wrkdir}/initramfs/
+	# linking busybox to recovery
+	ln -s recovery ${wrkdir}/initramfs/sbin/busybox
 fi
 
 # root
@@ -214,15 +226,6 @@ if [ ! -z "$do_root" ]; then
 	# copy files for 'root'
 	cp -r ${srcdir}/initramfs/root/* ${wrkdir}/initramfs/
 	# z4post.init.sh will copy the apk to /system/app if needed
-fi
-
-# recovery
-if [ ! -z "$do_recovery" ]; then
-	printhl "[I] Replacing recovery"
-	# copy files needed for recovery-2e
-	cp -r ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
-	# make sure the recovery script will start our new recovery binary
-	sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
 fi
 
 # store version

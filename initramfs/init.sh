@@ -1,4 +1,4 @@
-#!/sbin/busybox.init sh
+#!/sbin/busybox sh
 #
 # z4mod init wrapper, by Elia Yehuda (c) 2010 GPLv2
 #
@@ -7,13 +7,13 @@
 #
 
 # some aliasses to make the code more readable
-alias dd="busybox.init dd"
-alias od="busybox.init od"
-alias ls="busybox.init ls"
-alias sed="busybox.init sed"
-alias mknod="busybox.init mknod"
-alias mount="busybox.init mount"
-alias insmod="busybox.init insmod"
+alias dd="busybox dd"
+alias od="busybox od"
+alias ls="busybox ls"
+alias sed="busybox sed"
+alias mknod="busybox mknod"
+alias mount="busybox mount"
+alias insmod="busybox insmod"
 
 # jfs offset
 JFS_MAGIC=0x8000
@@ -40,8 +40,7 @@ EXT4_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue data=writeba
 JFS_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
 
 set -x
-# redirect all output to /z4mod.init.log
-exec > /z4mod.init.log 2>&1
+exec >> /z4mod.init.log 2>&1
 
 # we must have proc mounted
 mount -t proc none /proc

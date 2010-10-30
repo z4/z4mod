@@ -1,10 +1,10 @@
-#!/sbin/busybox.init sh
+#!/sbin/busybox sh
 # 
 # do last changes before system starts
 
-alias cp="busybox.init cp"
-alias rm="busybox.init rm"
-alias ls="busybox.init ls"
+alias cp="busybox cp"
+alias rm="busybox rm"
+alias ls="busybox ls"
 
 # tweaks by 'hardcore' : http://forum.xda-developers.com/showthread.php?t=813309
 # Tweak cfq io scheduler
@@ -43,5 +43,5 @@ rm /Superuser.apk
 # allow user specific init script to be executed
 [ -x /system/z4mod.init.sh ] && /system/z4mod.init.sh
 
-# free 250kb... (using double quotes to make 'sed' ignore this line)
-rm "/sbin/busybox".init
+# free 700kb
+rm /sbin/recovery
