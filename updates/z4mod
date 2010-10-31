@@ -6,7 +6,7 @@
 version=-git
 
 # everything is logged into /sdcard/z4mod.log
-exec > /sdcard/z4mod.log 2>&1
+exec >> /sdcard/z4mod.log 2>&1
 
 set -x
 export PATH=/:/sbin:/system/xbin:/system/sbin:/system/bin:$PATH

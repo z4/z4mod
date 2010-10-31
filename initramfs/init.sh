@@ -11,6 +11,7 @@ alias dd="busybox dd"
 alias od="busybox od"
 alias ls="busybox ls"
 alias awk="busybox awk"
+alias cat="busybox cat"
 alias sed="busybox sed"
 alias mknod="busybox mknod"
 alias mount="busybox mount"
@@ -76,7 +77,7 @@ get_partition_type()
 		# has journal?
 		#compat="`dd if=$part skip=$((COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
 		#compat=0x"${compat:8:8}"
-		compat=0x"`dd if=$part bs=$((COMPAT)) skip=1 count=1 2>/dev/null | dd bs=4 count=1 2>/dev/null | od -vx | awk '{print $2}'`"
+		compat=0x"`dd if=$part bs=$((COMPAT)) skip=1 count=1 2>/dev/null | dd bs=4 count=1 2>/dev/null | od -vx | awk '{print $3$2}'`"
 		if [ "$((compat&=EXT3_FEATURE_COMPAT_HAS_JOURNAL))" == "0" ]; then
 			# replace rfs with ext2
 			echo "ext2"
@@ -84,10 +85,10 @@ get_partition_type()
 			# ext3 or ext4
 			#ro_compat="`dd if=$part skip=$((RO_COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
 			#ro_compat=0x"${ro_compat:8:8}"
-			ro_compat=0x"`dd if=$part bs=$((RO_COMPAT)) skip=1 count=1 2>/dev/null | dd bs=1 count=4 2>/dev/null | od -vX | awk '{print $2}'`"
+			ro_compat=0x"`dd if=$part bs=$((RO_COMPAT)) skip=1 count=1 2>/dev/null | dd bs=1 count=4 2>/dev/null | od -vx | awk '{print $3$2}'`"
 			#incompat="`dd if=$part skip=$((INCOMPAT)) bs=1 count=4 2>/dev/null | od -X`"
 			#incompat=0x"${incompat:8:8}"
-			incompat=0x"`dd if=$part bs=$((INCOMPAT)) skip=1 count=1 2>/dev/null | dd bs=1 count=4 2>/dev/null | od -vX | awk '{print $2}'`"
+			incompat=0x"`dd if=$part bs=$((INCOMPAT)) skip=1 count=1 2>/dev/null | dd bs=1 count=4 2>/dev/null | od -vx | awk '{print $3$2}'`"
 			if [ "$((ro_compat&=EXT4_FEATURE_RO_COMPAT_HUGE_FILE))" != "0" -o \
 				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_GDT_CSUM))" != "0" -o \
 				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_DIR_NLINK))" != "0" -o \
@@ -138,10 +139,17 @@ done
 # check if we need to patch the init binary
 if [ "${FOUND_NON_RFS}" == "true" ]; then
 	# patch init to ignore non-RFS mmcblk0p2 (and not format it)
-	sed -i 's/mmcblk0\x00/\x00mcblk0\x00/g;s/mmcblk0p2\x00/\x00mcblk0p2\x00/g' /sbin/init
+	sed -i 's/mmcblk0/z4cblk0/g;s/mmcblk0p2/z4cblk0p2/g' /sbin/init
 fi
 # allow a secondary wrapper to be executed
 [ -x /z4pre.init.sh ] && /z4pre.init.sh
+
+# for debugging:
+#busybox mkdir /z4mod
+#busybox mount /dev/block/mmcblk0p1 /z4mod
+#busybox cat /z4mod.init.log >> /z4mod/z4mod.init.log
+#busybox umount /z4mod
+
 # execute init
 exec /sbin/init
 
