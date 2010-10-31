@@ -209,7 +209,7 @@ if [ ! -z "$do_recovery" ]; then
         cp -r ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
         # make sure the recovery script will start our new recovery binary
         sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
-	sed -i 's|#mount rfs /dev/block/stl11 /cache |mount rfs /dev/block/stl11 /cache|g' ${wrkdir}/initramfs/recovery.rc
+	sed -i 's|#mount rfs /dev/block/stl11 /cache|mount rfs /dev/block/stl11 /cache|g' ${wrkdir}/initramfs/recovery.rc
 fi
 
 # installing either busybox.init or full-busybox for our init wrapper
