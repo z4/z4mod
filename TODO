@@ -9,5 +9,6 @@ TODO:
 - z4build: change kernel cmdline to start /z4mod instead of /init
   (need to test /linuxrc cmdline currently used...)
 - z4zipgen.sh: add static jfsutils (is that needed? /system is mounted)
+- Live in NYC for at least 6 months
 - Release final version (1.0) only after all TODOs are completed
 
