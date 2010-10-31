@@ -246,7 +246,7 @@ fi
 ###############################################################################
 
 printhl "[I] Saving patched initramfs.img"
-(cd ${wrkdir}/initramfs/; find . | cpio -H newc -o | gzip -9 > ${wrkdir}/initramfs.img)
+(cd ${wrkdir}/initramfs/; find . | cpio -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
 printhl "[I] Repacking zImage"
 pushd ${wrkdir}
 rm -f new_zImage
