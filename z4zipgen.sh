@@ -18,7 +18,7 @@ usage()
 	echo "root       = install root"
 	echo "busybox    = install busybox"
 	echo "-z zImage  = flash zImage to device"
-	echo "-o output  = write final update.zip file to output
+	echo "-o output  = write final update.zip file to output"
 	echo
 	exit 1
 }
@@ -44,8 +44,6 @@ mkdir -p ${wrkdir}/{sbin,system/{app,xbin}}
 cp -r ${srcdir}/updates/META-INF ${wrkdir}/
 
 filename=z4mod
-curdir=`pwd`
-output=${curdir}/${filename}.update.zip
 
 while [ "$*" ]; do
 	if [ "$1" == "root" -o "$1" == "busybox" ]; then
@@ -69,6 +67,9 @@ while [ "$*" ]; do
 	fi
 	shift
 done
+if [ -z $output ]; then
+	output=`pwd`/${filename}.update.zip
+fi
 
 # copy the appropriate tools according to selected filesystem
 case "${filesystem}" in
