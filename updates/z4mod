@@ -53,6 +53,9 @@ fi
 [ "${format_cmd}" == "" ] && halt
 [ `busybox which ${format_cmd}` ] || halt
 
+# fix mtab errors
+busybox ln -s /proc/mounts /etc/mtab
+
 # /system takes special handling before we can unmount it
 # FIXME: NOT TESTED YET!
 if [ "${partition}" == "system" ]; then
