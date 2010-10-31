@@ -109,7 +109,7 @@ srcdir=`dirname $0`
 srcdir=`realpath $srcdir`
 KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 version=`cat ${srcdir}/z4version`
-mkdir -p ${wrkdir}/initramfs/{sbin,cache,sdcard}
+mkdir -p ${wrkdir}/initramfs/{sbin,cache,sdcard,sd-ext}
 mkdir -p ${wrkdir}/initramfs/dev/block
 
 ###############################################################################
