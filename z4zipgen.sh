@@ -11,13 +11,14 @@
 usage() 
 {
 	echo
-	echo "z4zipgen.sh [filesystem] [root] [busybox] [-z zImage]"
+	echo "z4zipgen.sh [filesystem] [root] [busybox] [-z zImage] [-o output]"
 	echo "all parameters are optional:"
 	echo
 	echo "filesystem = convert filesystem to [ext2/ext3/ext4/jfs/rfs/auto]"
 	echo "root       = install root"
 	echo "busybox    = install busybox"
 	echo "-z zImage  = flash zImage to device"
+	echo "-o output  = write final update.zip file to output
 	echo
 	exit 1
 }
@@ -43,6 +44,8 @@ mkdir -p ${wrkdir}/{sbin,system/{app,xbin}}
 cp -r ${srcdir}/updates/META-INF ${wrkdir}/
 
 filename=z4mod
+curdir=`pwd`
+output=${curdir}/${filename}.update.zip
 
 while [ "$*" ]; do
 	if [ "$1" == "root" -o "$1" == "busybox" ]; then
@@ -57,6 +60,9 @@ while [ "$*" ]; do
 			exit 1
 		fi
 		filename="${filename}.zImage"
+	elif [ "$1" == "-o" ]; then
+		shift
+		output=$1
 	else
 		filesystem="$1"
 		filename="${filename}.$1"
@@ -117,8 +123,7 @@ version=`cat ${srcdir}/z4version`
 sed -i 's/Version .*/Version '$version'\");/g' ${script}
 sed -i 's/version=.*/version='$version'/g' ${wrkdir}/sbin/z4mod
 # create the update.zip file
-curdir=`pwd`
-(cd ${wrkdir}; zip -r $curdir/${filename}.update.zip META-INF/ sbin/ system/ $zImagefiles)
+(cd ${wrkdir}; zip -r $output META-INF/ sbin/ system/ $zImagefiles)
 # cleanup
 rm -rf ${wrkdir}
 
