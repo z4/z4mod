@@ -36,7 +36,7 @@ set_data_filesystem()
 get_system_files()
 {
 	pushd $wrkdir >/dev/null
-	for file in `find system/ ! -type d`; do echo "package_extract_file(\"$file\", \"/$file\");\\"; done
+	for file in `find system/ ! -type d`; do echo -e "delete(\"$file\");\\\npackage_extract_file(\"$file\", \"/$file\");\\"; done
 	popd >/dev/null
 }
 
