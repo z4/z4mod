@@ -10,6 +10,7 @@
 alias dd="busybox dd"
 alias od="busybox od"
 alias ls="busybox ls"
+alias awk="busybox awk"
 alias sed="busybox sed"
 alias mknod="busybox mknod"
 alias mount="busybox mount"
@@ -68,20 +69,25 @@ get_partition_type()
 {
 	part=$1
 	# check if this is an ext2/3/4
-	magic="`dd if=$part skip=$((EXT_MAGIC)) bs=1 count=2 2>/dev/null | od -x`"
-	if [ "${magic:8:4}" == "ef53" ]; then
+	#magic="`dd if=$part skip=$((EXT_MAGIC)) bs=1 count=2 2>/dev/null | od -vx`"
+	#if [ "${magic:8:4}" == "ef53" ]; then
+	magic="`dd if=$part bs=$((EXT_MAGIC)) skip=1 count=1 2>/dev/null | dd bs=2 count=1 2>/dev/null | od -vx | awk '{print $2}'`"
+	if [ "$magic" == "ef53" ]; then
 		# has journal?
-		compat="`dd if=$part skip=$((COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
-		compat=0x"${compat:8:8}"
+		#compat="`dd if=$part skip=$((COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
+		#compat=0x"${compat:8:8}"
+		compat=0x"`dd if=$part bs=$((COMPAT)) skip=1 count=1 2>/dev/null | dd bs=4 count=1 2>/dev/null | od -vx | awk '{print $2}'`"
 		if [ "$((compat&=EXT3_FEATURE_COMPAT_HAS_JOURNAL))" == "0" ]; then
 			# replace rfs with ext2
 			echo "ext2"
 		else
 			# ext3 or ext4
-			ro_compat="`dd if=$part skip=$((RO_COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
-			ro_compat=0x"${ro_compat:8:8}"
-			incompat="`dd if=$part skip=$((INCOMPAT)) bs=1 count=4 2>/dev/null | od -X`"
-			incompat=0x"${incompat:8:8}"
+			#ro_compat="`dd if=$part skip=$((RO_COMPAT)) bs=1 count=4 2>/dev/null | od -X`"
+			#ro_compat=0x"${ro_compat:8:8}"
+			ro_compat=0x"`dd if=$part bs=$((RO_COMPAT)) skip=1 count=1 2>/dev/null | dd bs=1 count=4 2>/dev/null | od -vX | awk '{print $2}'`"
+			#incompat="`dd if=$part skip=$((INCOMPAT)) bs=1 count=4 2>/dev/null | od -X`"
+			#incompat=0x"${incompat:8:8}"
+			incompat=0x"`dd if=$part bs=$((INCOMPAT)) skip=1 count=1 2>/dev/null | dd bs=1 count=4 2>/dev/null | od -vX | awk '{print $2}'`"
 			if [ "$((ro_compat&=EXT4_FEATURE_RO_COMPAT_HUGE_FILE))" != "0" -o \
 				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_GDT_CSUM))" != "0" -o \
 				"$((ro_compat&=EXT4_FEATURE_RO_COMPAT_DIR_NLINK))" != "0" -o \
@@ -97,8 +103,10 @@ get_partition_type()
 		fi
 	else
 		# check if this is a jfs filesystem
-		magic="`dd if=$part skip=$((JFS_MAGIC)) bs=1 count=4 2>/dev/null`"
-		if [ "${magic:0:4}" == "JFS1" ]; then
+		#magic="`dd if=$part skip=$((JFS_MAGIC)) bs=1 count=4 2>/dev/null`"
+		#if [ "${magic:0:4}" == "JFS1" ]; then
+		magic="`dd if=$part bs=$((JFS_MAGIC)) skip=1 count=1 2>/dev/null | dd bs=4 count=1 2>/dev/null`"
+		if [ "$magic" == "JFS1" ]; then
 			# replace rfs with jfs
 			echo "jfs"
 		fi
