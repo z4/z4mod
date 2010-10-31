@@ -139,5 +139,5 @@ rm -rf ${wrkdir}
 
 echo
 echo File is ready: 
-ls -lh $filename.update.zip
+ls -lh $output
 echo
