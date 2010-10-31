@@ -15,9 +15,9 @@ ui_print("");
 ui_print("--[ Extracting /system");
 ui_print("");
 mount("MTD", "system", "/system");
-package_extract_dir("system", "/system/");
+package_extract_dir("system", "/system");
 set_perm_recursive(0, 0, 0755, 0755, "/system/xbin");
-unmount("system");
+#unmount("system");
 
 # END: Install
 
@@ -35,9 +35,12 @@ assert( is_mounted("/sdcard") || is_mounted("/mnt/sdcard"));
 delete("/sdcard/z4mod.log");
 
 ui_print("--[ Extracting tools");
-package_extract_dir("sbin", "/sbin/");
-set_perm(0, 0, 04755, "sbin/busybox");
-set_perm(0, 0, 04755, "sbin/z4mod");
+# FIXME: This doesnt work
+#package_extract_dir("sbin", "/sbin");
+package_extract_file("sbin/busybox", "/sbin/busybox");
+package_extract_file("sbin/z4mod", "/sbin/z4mod");
+set_perm(0, 0, 04755, "/sbin/busybox");
+set_perm(0, 0, 04755, "/sbin/z4mod");
 
 show_progress(0.1, 0);
 
@@ -45,7 +48,7 @@ show_progress(0.1, 0);
 ui_print("--[ Converting /data");
 ui_print("");
 show_progress(0.8, 180);
-run_program("sbin/z4mod", "data", "mmcblk0p2", "auto");
+run_program("/sbin/z4mod", "data", "mmcblk0p2", "auto");
 
 unmount("sdcard");
 

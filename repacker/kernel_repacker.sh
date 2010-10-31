@@ -86,7 +86,9 @@ done
 if [ "$is_gzipped" == "FALSE" ]; then
 	printhl "Finding non gzipped cpio length"
 	start=`grep -F -a -b -m 1 --only-matching '070701' $kernel | head -1 | cut -f 1 -d :`
-	end=`dd if=$kernel | pax -v | tail -1 | cut -f 3 -d , | awk '{ print $1 }'`
+	#end=`dd if=$kernel | pax -v | tail -1 | cut -f 3 -d , | awk '{ print $1 }'`
+	end=`grep -a -b --only-matching 'TRAILER!!!' $kernel | head -1 | cut -f 1 -d :`
+	end=$((end + 10))
 
 	if [ "$start" == "" -o "$end" == "" -o $start -gt $end ]; then
 		printerr "Could not detect a CPIO Archive!"

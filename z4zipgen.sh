@@ -30,9 +30,15 @@ set_data_filesystem()
 	# copy busybox to initramfs/sbin for z4mod usage
 	cp ${srcdir}/updates/busybox/system/xbin/busybox ${wrkdir}/sbin/busybox
 	# set correct filesystem type into the updater-script template
-	sed -i 's|run_program("sbin/z4mod".*|run_program("sbin/z4mod", "data", "mmcblk0p2", "'$1'");|g' "${script}"
+	sed -i 's|run_program("/sbin/z4mod".*|run_program("/sbin/z4mod", "data", "mmcblk0p2", "'$1'");|g' "${script}"
 }
 
+get_system_files()
+{
+	pushd $wrkdir >/dev/null
+	for file in `find system/ ! -type d`; do echo "package_extract_file(\"$file\", \"/$file\");\\"; done
+	popd >/dev/null
+}
 
 [ $# == 0 ] && usage
 
@@ -106,10 +112,10 @@ case "${filesystem}" in
 		;;
 esac
 
-if [ -z ${z4install} ]; then
-	# remove the install section from updater-script
-	sed -i '/# START: Install/,/# END: Install/d' "${script}"
-fi
+#if [ -z ${z4install} ]; then
+#	# remove the install section from updater-script
+#	sed -i '/# START: Install/,/# END: Install/d' "${script}"
+#fi
 if [ -z ${zImage} ]; then
 	# remove the kernel-flash section from updater-script
 	sed -i '/# START: Kernel/,/# END: Kernel/d' "${script}"
@@ -118,6 +124,9 @@ else
 	cp $zImage $wrkdir/zImage
 	zImagefiles="zImage redbend_ua"
 fi
+
+# FIXME: package_extract_dir does not work with CWM recovery
+sed -i 's|package_extract_dir("system", "/system");|'"`get_system_files`"\n'|g' ${script}
 
 # set version in script
 version=`cat ${srcdir}/z4version`
