@@ -238,6 +238,11 @@ if [ ! -z "${rootfile}" ]; then
 	# FIXME: this is useless for executables (binaries/scripts) since zip 
 	#        doesn't preserve execution bit
 	[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs/
+	# now we make sure our executables can run...
+	chmod +x ${wrkdir}/initramfs/init
+	chmod +x ${wrkdir}/initramfs/z4pre.init.sh
+	chmod +x ${wrkdir}/initramfs/z4post.init.sh
+	for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
 fi
 
 ###############################################################################
