@@ -168,7 +168,7 @@ printhl "[I] Extracting initramfs compressed image"
 (cd ${wrkdir}/initramfs/; cpio -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
 
 # check if this kernel is patched already with z4build
-if [ -f ${wrkdir}/initramfs/z4version ] || [ `cmp -s ${srcdir}/initramfs/init.sh ${wrkdir}/initramfs/init` ]; then
+if [ -f ${wrkdir}/initramfs/z4version ] || [ `cmp -s ${srcdir}/initramfs/init ${wrkdir}/initramfs/init` ]; then
 	exit_error "[E] This kernel is already patched with z4build"
 fi
 
@@ -192,7 +192,7 @@ if [ -f ${initfile} ]; then
 	# move original init to sbin
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
-	cp ${srcdir}/initramfs/init.sh ${wrkdir}/initramfs/init
+	cp ${srcdir}/initramfs/init ${wrkdir}/initramfs/init
 	# copy the pre/post-init script
 	cp ${srcdir}/initramfs/z4post.init.sh ${wrkdir}/initramfs/
 	cp ${srcdir}/initramfs/z4pre.init.sh ${wrkdir}/initramfs/
