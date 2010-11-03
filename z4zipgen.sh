@@ -27,6 +27,7 @@ set_data_filesystem()
 {
 	# copy our z4mod converting script
 	cp ${srcdir}/updates/z4mod ${wrkdir}/sbin/z4mod
+	sed -i 's/version=.*/version='$version'/g' ${wrkdir}/sbin/z4mod
 	# copy busybox to initramfs/sbin for z4mod usage
 	cp ${srcdir}/updates/busybox/system/xbin/busybox ${wrkdir}/sbin/busybox
 	# set correct filesystem type into the updater-script template
@@ -36,7 +37,10 @@ set_data_filesystem()
 get_system_files()
 {
 	pushd $wrkdir >/dev/null
-	for file in `find system/ ! -type d`; do echo -e "delete(\"$file\");\\\npackage_extract_file(\"$file\", \"/$file\");\\"; done
+	for file in `find system/ ! -type d`; do
+		echo -e "delete(\"$file\");\\\npackage_extract_file(\"$file\", \"/$file\");\\"
+		echo -e "set_perm(0, 0, $(stat -c '%a' $file), \"/$file\");\\"
+	done
 	popd >/dev/null
 }
 
@@ -53,7 +57,7 @@ filename=z4mod
 
 while [ "$*" ]; do
 	if [ "$1" == "root" -o "$1" == "busybox" ]; then
-		cp -r ${srcdir}/updates/$1/* ${wrkdir}/
+		cp -a ${srcdir}/updates/$1/* ${wrkdir}/
 		z4install="true"
 		filename="${filename}.$1"
 	elif [ "$1" == "-z" ]; then
@@ -76,6 +80,9 @@ done
 if [ -z $output ]; then
 	output=`pwd`/${filename}.update.zip
 fi
+# set version in script
+version=`cat ${srcdir}/z4version`
+
 
 # copy the appropriate tools according to selected filesystem
 case "${filesystem}" in
@@ -129,9 +136,8 @@ fi
 sed -i 's|package_extract_dir("system", "/system");|'"`get_system_files`"\n'|g' ${script}
 
 # set version in script
-version=`cat ${srcdir}/z4version`
 sed -i 's/Version .*/Version '$version'\");/g' ${script}
-sed -i 's/version=.*/version='$version'/g' ${wrkdir}/sbin/z4mod
+
 # create the update.zip file
 (cd ${wrkdir}; zip -r $output META-INF/ sbin/ system/ $zImagefiles)
 # cleanup

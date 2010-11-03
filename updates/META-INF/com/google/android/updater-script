@@ -16,7 +16,7 @@ ui_print("--[ Extracting /system");
 ui_print("");
 mount("MTD", "system", "/system");
 package_extract_dir("system", "/system");
-set_perm_recursive(0, 0, 0755, 0755, "/system/xbin");
+#set_perm_recursive(0, 0, 0755, 0755, "/system/xbin");
 #unmount("system");
 
 # END: Install
