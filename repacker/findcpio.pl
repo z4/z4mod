@@ -2,6 +2,11 @@
 #
 # search for cpio archive in a file, and output start/end offsets.
 #
+# usage:
+#   findcpio.pl filename [start_offset]
+#
+# to search cpio in "filename", where [start_offset] is optional
+#
 
 use constant CPIO_HEADER => "070701";
 
@@ -61,6 +66,7 @@ $start=find_cpio_begin($start);
 exit 1 if $start==-1;
 $end=scan_cpio($start);
 close(FILE);
-printf "0x%08x\t0x%08x\n",$start,$end;
+#printf "0x%08x\t0x%08x\n",$start,$end;
+printf "%d\t%d\t%d\n",$start,$end,$end-$start;
 
 
