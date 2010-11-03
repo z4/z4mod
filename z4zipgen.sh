@@ -77,6 +77,9 @@ while [ "$*" ]; do
 	fi
 	shift
 done
+# FIXME: we cant preseve special permissions on git...
+[ -f ${wrkdir}/system/xbin/su ] && chmod 6755 ${wrkdir}/system/xbin/su
+
 if [ -z $output ]; then
 	output=`pwd`/${filename}.update.zip
 fi
