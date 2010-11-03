@@ -10,7 +10,7 @@ sub find_cpio_begin {
 	$n=1;
 	$offset=$_[0];
 	seek(FILE, $offset, 0);
-	while (	$n=read FILE, $data, 1024*1024) {
+	while (	$n=read FILE, $data, 1024*256) {
 		$offset=index $data, CPIO_HEADER, 0;
 		return $offset if $offset!=-1;
 	}
