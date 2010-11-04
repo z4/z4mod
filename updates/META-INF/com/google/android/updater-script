@@ -54,6 +54,8 @@ unmount("sdcard");
 
 # END: z4mod convert
 
+unmount("/system");
+
 # START: Kernel flash
 
 ui_print("--[ Flashing kernel");
