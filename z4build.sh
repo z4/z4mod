@@ -206,7 +206,7 @@ fi
 if [ ! -z "$do_recovery" ]; then
         printhl "[I] Replacing recovery"
         # copy files needed for recovery-2e
-        cp -r ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
+        cp -a ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
         # make sure the recovery script will start our new recovery binary
         sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
 	sed -i 's|#mount rfs /dev/block/stl11 /cache|mount rfs /dev/block/stl11 /cache|g' ${wrkdir}/initramfs/recovery.rc
@@ -216,7 +216,7 @@ fi
 if [ ! -z "$do_busybox" ]; then
 	printhl "[I] Installing full busybox"
 	# copy the full-busybox binary, and replace busybox.init in our init wrappers
-	cp -r ${srcdir}/initramfs/busybox/* ${wrkdir}/initramfs/
+	cp -a ${srcdir}/initramfs/busybox/* ${wrkdir}/initramfs/
 else
 	# linking busybox to recovery
 	ln -s recovery ${wrkdir}/initramfs/sbin/busybox
@@ -224,8 +224,11 @@ fi
 
 # root
 if [ ! -z "$do_root" ]; then
+	printhl "[I] Installing root"
 	# copy files for 'root'
-	cp -r ${srcdir}/initramfs/root/* ${wrkdir}/initramfs/
+	cp -a ${srcdir}/initramfs/root/* ${wrkdir}/initramfs/
+	# FIXME: we must do this maually, git doesnt preserve file mode
+	chmod 6755 ${wrkdir}/initramfs/sbin/su
 	# z4post.init.sh will copy the apk to /system/app if needed
 fi
 

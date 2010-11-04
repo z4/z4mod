@@ -38,8 +38,16 @@ get_system_files()
 {
 	pushd $wrkdir >/dev/null
 	for file in `find system/ ! -type d`; do
-		echo -e "delete(\"$file\");\\\npackage_extract_file(\"$file\", \"/$file\");\\"
-		echo -e "set_perm(0, 0, $(stat -c '%a' $file), \"/$file\");\\"
+		if [ -L $file ]; then
+			echo -e "symlink(\"$(readlink $file)\", \"/$file\");\\"
+		else
+			echo -e "delete(\"$file\");\\\npackage_extract_file(\"$file\", \"/$file\");\\"
+			if [ "apk" == "${file##*.}" ]; then
+				echo -e "set_perm(0, 0, 0666, \"/$file\");\\"
+			else
+				echo -e "set_perm(0, 0, 0$(stat -c '%a' $file), \"/$file\");\\"
+			fi
+		fi
 	done
 	popd >/dev/null
 }
@@ -77,7 +85,7 @@ while [ "$*" ]; do
 	fi
 	shift
 done
-# FIXME: we cant preseve special permissions on git...
+# FIXME: we cant preseve special permissions on git so we do this manually
 [ -f ${wrkdir}/system/xbin/su ] && chmod 6755 ${wrkdir}/system/xbin/su
 
 if [ -z $output ]; then
@@ -135,7 +143,7 @@ else
 	zImagefiles="zImage redbend_ua"
 fi
 
-# FIXME: package_extract_dir does not work with CWM recovery
+# package_extract_dir doesnt extract sub-directories, so we do this manually
 sed -i 's|package_extract_dir("system", "/system");|'"`get_system_files`"\n'|g' ${script}
 
 # set version in script
