@@ -60,7 +60,7 @@ fi
 pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
 printhl "Extracting kernel from $zImage (start = $pos)"
 mkdir out 2>/dev/null
-dd if=$zImage bs=$pos skip=1 | gunzip > $kernel
+dd status=noxfer if=$zImage bs=$pos skip=1 | gunzip -q > $kernel
 
 #=======================================================
 # Determine if the cpio inside the zImage is gzipped
@@ -69,11 +69,11 @@ is_gzipped="FALSE"
 gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' $kernel`
 for possible_gzip_start in $gzip_start_arr; do
 	possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
-	dd if=$kernel bs=$possible_gzip_start skip=1 | gunzip > $test_unzipped_cpio
+	dd status=noxfer if=$kernel bs=$possible_gzip_start skip=1 | gunzip -q > $test_unzipped_cpio
 	if [ $? -ne 1 ]; then
 		is_gzipped="TRUE"
 		start=$possible_gzip_start
-		dd if=$kernel bs=$possible_gzip_start skip=1 of=$test_unzipped_cpio
+		dd status=noxfer if=$kernel bs=$possible_gzip_start skip=1 of=$test_unzipped_cpio
 		end=`$FINDZEROS $test_unzipped_cpio | cut -f 2`
 		printhl "gzipped archive detected at $start ~ $end"
 		break
@@ -112,11 +112,11 @@ filesize=`ls -l $kernel | awk '{print $5}'`
 
 # Split the Image #1 ->  head.img
 printhl "Making head.img ( from 0 ~ $start )"
-dd if=$kernel bs=$start count=1 of=$head_image
+dd status=noxfer if=$kernel bs=$start count=1 of=$head_image
 
 # Split the Image #2 ->  tail.img
 printhl "Making a tail.img ( from $end ~ $filesize )"
-dd if=$kernel bs=$end skip=1 of=$tail_image
+dd status=noxfer if=$kernel bs=$end skip=1 of=$tail_image
 
 #if [ "gzip" == "`file $new_ramdisk | awk '{print $2}'`" ]; then
 #	gunzip $new_ramdisk > out/tempramdisk
@@ -146,7 +146,7 @@ franksize=`ls -l out/franken.img | awk '{print $5}'`
 printhl "Merging [head+ramdisk] + padding + tail"
 if [ $franksize -lt $end ]; then
 	tempnum=$((end - franksize))
-	dd if=/dev/zero bs=$tempnum count=1 of=out/padding
+	dd status=noxfer if=/dev/zero bs=$tempnum count=1 of=out/padding
 	cat out/padding $tail_image > out/newtail.img
 	cat out/franken.img out/newtail.img > out/new_Image
 else

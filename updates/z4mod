@@ -57,11 +57,11 @@ fi
 busybox ln -s /proc/mounts /etc/mtab
 
 # /system takes special handling before we can unmount it
-# FIXME: NOT TESTED YET!
 if [ "${partition}" == "system" ]; then
-	busybox killall adbd
-	# not needed - we use /sbin/recovery
-	#busybox killall recovery
+	# if we want to umount it, we better have it in /sbin...
+	busybox cp `busybox which ${format_cmd}` /sbin/
+	# kill all processes using /system
+	busybox fuser -mk /system
 fi
 
 # we unmount just to make sure target is not mounted already

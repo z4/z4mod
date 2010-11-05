@@ -121,7 +121,7 @@ mkdir -p ${wrkdir}/initramfs/dev/block
 # find start of gziped kernel object in the zImage file:
 pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
 printhl "[I] Extracting kernel image from $zImage (start = $pos)"
-dd if=$zImage bs=$pos skip=1 | gunzip > ${wrkdir}/kernel.img
+dd status=noxfer if=$zImage bs=$pos skip=1 | gunzip -q > ${wrkdir}/kernel.img
 
 #=======================================================
 # Determine if the cpio inside the zImage is gzipped
@@ -130,7 +130,7 @@ cpio_found="FALSE"
 gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img`
 for possible_gzip_start in $gzip_start_arr; do
 	possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
-	dd if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 | gunzip > ${wrkdir}/cpio.img
+	dd status=noxfer if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 | gunzip -q > ${wrkdir}/cpio.img
 	if [ $? -ne 1 ]; then
 		printhl "[I] gzipped archive detected"
 		cpio_found="TRUE"
@@ -154,7 +154,7 @@ if [ "$cpio_found" == "FALSE" ]; then
 	fi
 	
 	printhl "[I] Extracting initramfs image from kernel (start = $start)"
-	dd if=${wrkdir}/kernel.img bs=$start skip=1 > ${wrkdir}/initramfs.img
+	dd status=noxfer if=${wrkdir}/kernel.img bs=$start skip=1 > ${wrkdir}/initramfs.img
 fi
 
 ###############################################################################
@@ -165,7 +165,7 @@ fi
 ###############################################################################
 
 printhl "[I] Extracting initramfs compressed image"
-(cd ${wrkdir}/initramfs/; cpio -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
+(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
 
 # check if this kernel is patched already with z4build
 if [ -f ${wrkdir}/initramfs/z4version ] || [ `cmp -s ${srcdir}/initramfs/init ${wrkdir}/initramfs/init` ]; then
@@ -255,12 +255,12 @@ fi
 ###############################################################################
 
 printhl "[I] Saving patched initramfs.img"
-(cd ${wrkdir}/initramfs/; find . | cpio -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
+(cd ${wrkdir}/initramfs/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
 printhl "[I] Repacking zImage"
-pushd ${wrkdir}
+pushd ${wrkdir} >/dev/null
 rm -f new_zImage
 ${KERNEL_REPACKER} ${zImage} ${wrkdir}/initramfs.img
-popd
+popd >/dev/null
 if [ ! -f ${wrkdir}/new_zImage ]; then
 	exit_error "[E] Failed building new zImage"
 fi
