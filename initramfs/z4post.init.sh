@@ -7,6 +7,8 @@ alias rm="busybox rm"
 alias ls="busybox ls"
 alias ln="busybox ln"
 alias mv="busybox mv"
+alias pwd="busybox pwd"
+alias chmod="busybox chmod"
 alias mount="busybox mount"
 
 # tweaks by 'hardcore' : http://forum.xda-developers.com/showthread.php?t=813309
@@ -34,16 +36,17 @@ echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
 setprop dalvik.vm.startheapsize 8m
 setprop wifi.supplicant_scan_interval 90
 
-# copy Superuser.apk if needed (ie, 1st time we are running on this system)
-if [ ! -f /system/app/Superuser.apk ]; then
-	mount -o remount,rw /system
-	# copy superuser to /system/app
-	cp /res/Superuser.apk /system/app/Superuser.apk
-	chmod 0644 /system/app/Superuser.apk
-	# and install busybox (if exists) to /system/xbin
-	#[ -x /sbin/busybox ] && /sbin/busybox --install -s /system/xbin
-	mount -o remount,ro /system
-fi
+# start *.apk install
+mount -o remount,rw /system
+LASTDIR=`pwd`
+cd /res
+for apk in `ls *.apk`; do
+	cp ${apk} /system/app/
+	chmod 0644 /system/app/${apk}
+done
+cd $LASTDIR
+mount -o remount,ro /system
+
 # allow user specific init script to be executed
 [ -x /system/z4mod.init.sh ] && /system/z4mod.init.sh
 

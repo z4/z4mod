@@ -60,7 +60,8 @@ busybox ln -s /proc/mounts /etc/mtab
 # FIXME: NOT TESTED YET!
 if [ "${partition}" == "system" ]; then
 	busybox killall adbd
-	busybox killall recovery
+	# not needed - we use /sbin/recovery
+	#busybox killall recovery
 fi
 
 # we unmount just to make sure target is not mounted already
