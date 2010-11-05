@@ -66,14 +66,21 @@ fi
 
 # we unmount just to make sure target is not mounted already
 busybox umount /${partition}
-# we mount using RFS mount parameters - otherwise it will be mounted as FAT :-)
-if [ "${filesystem}" == "rfs" ]; then
-	# we assume target is ext2/3/4 already
-	busybox mount ${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || halt
-else
-	# we assume target is rfs atm
-	busybox mount ${devblock} /${partition} -o nosuid,nodev,check=no || halt
+
+# get current filesystem
+currentfs=`busybox mount | busybox grep "${partition}" | busybox awk '{print $5}'`
+[ "${currentfs}" == "${filesystem}" ] && halt
+
+# defaulting to rfs
+[ "${currentfs}" == "" ] && currentfs="rfs"
+# we must mount target with propriate mount parameters
+if [ "${currentfs}" == "rfs" ]; then
+	# mount using RFS mount parameters - otherwise it will be mounted as FAT, which is bad.
+	busybox mount -t $currentfs ${devblock} /${partition} -o nosuid,nodev,check=no || halt 
 	#mount -o nosuid,nodev,check=no -t rfs ${devblock} /${partition}
+else
+	# mount target as ext2/3/4
+	busybox mount -t $currentfs ${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || halt
 fi
 
 # remove old backup if any
