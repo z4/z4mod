@@ -44,67 +44,52 @@ exit_usage() {
 	exit 1
 }
 
-if [ "$1" == "" -o "$2" == "" ]; then
-	exit_usage
-fi
+# find start/end of initramfs in the zImage file
+find_start_end() 
+{
+	pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
+	printhl "Extracting kernel from $zImage (start = $pos)"
+	mkdir out 2>/dev/null
+	dd status=noxfer if=$zImage bs=$pos skip=1 | gunzip -q > $kernel
 
-if [ "`which pax`" == "" ]; then
-	printerr "Could not find pax utility. Please install it."
-	exit 1
-fi
-
-#=======================================================
-# find start of gziped kernel object in the zImage file:
-#=======================================================
-
-pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
-printhl "Extracting kernel from $zImage (start = $pos)"
-mkdir out 2>/dev/null
-dd status=noxfer if=$zImage bs=$pos skip=1 | gunzip -q > $kernel
-
-#=======================================================
-# Determine if the cpio inside the zImage is gzipped
-#=======================================================
-is_gzipped="FALSE"
-gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' $kernel`
-for possible_gzip_start in $gzip_start_arr; do
-	possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
-	dd status=noxfer if=$kernel bs=$possible_gzip_start skip=1 | gunzip -q > $test_unzipped_cpio
-	if [ $? -ne 1 ]; then
-		is_gzipped="TRUE"
-		start=$possible_gzip_start
-		dd status=noxfer if=$kernel bs=$possible_gzip_start skip=1 of=$test_unzipped_cpio
-		end=`$FINDZEROS $test_unzipped_cpio | cut -f 2`
-		printhl "gzipped archive detected at $start ~ $end"
-		break
-	fi
-done
-
-#===========================================================================
-# ASCII cpio header starts with '070701'
-# Once we have the header, we can find the length using 'pax'
-#===========================================================================
-if [ "$is_gzipped" == "FALSE" ]; then
+	gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' $kernel`
+	for possible_gzip_start in $gzip_start_arr; do
+		possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
+		dd if=$kernel bs=$possible_gzip_start skip=1 | gunzip > $test_unzipped_cpio
+		if [ $? -ne 1 ]; then
+			is_gzipped="TRUE"
+			start=$possible_gzip_start
+			dd if=$kernel bs=$possible_gzip_start skip=1 of=$test_unzipped_cpio
+			end=`$FINDZEROS $test_unzipped_cpio | cut -f 2`
+			printhl "gzipped archive detected at $start ~ $end"
+			return
+		fi
+	done
 	printhl "Finding non gzipped cpio length"
 	start=`grep -F -a -b -m 1 --only-matching '070701' $kernel | head -1 | cut -f 1 -d :`
-	#end=`dd if=$kernel | pax -v | tail -1 | cut -f 3 -d , | awk '{ print $1 }'`
-	#end=`grep -a -b --only-matching 'TRAILER!!!' $kernel | head -1 
-	#| cut -f 1 -d :`
-	#end=$((end + 10))
-
 	end=`$FINDCPIO $kernel | cut -f 2`
-
 	if [ "$start" == "" -o "$end" == "" -o $start -gt $end ]; then
 		printerr "Could not detect a CPIO Archive!"
 		exit
 	fi
+}
+
+
+if [ "$1" == "" -o "$2" == "" ]; then
+	exit_usage
 fi
 
-count=$((end - start))
+###############################################################################
+#
+# code begins
+#
+###############################################################################
 
+find_start_end
+count=$((end - start))
 if [ $count -lt 0 ]; then
-  printerr "Could not correctly determine the start/end positions of the CPIO!"
-  exit
+	printerr "Could not correctly determine the start/end positions of the CPIO!"
+	exit
 fi
 
 # Check the Image's size

@@ -36,9 +36,9 @@ EXT4_FEATURE_INCOMPAT_64BIT=128
 EXT4_FEATURE_INCOMPAT_MMP=256
 
 # mount options for various filesystem types
-EXT2_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
-EXT3_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue data=writeback barrier=0"
-EXT4_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue data=writeback barrier=0 noauto_da_alloc"
+EXT2_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue nobh"
+EXT3_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue nobh data=writeback barrier=0"
+EXT4_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue nobh data=writeback barrier=0 noauto_da_alloc"
 JFS_MOUNT_OPTIONS="nosuid nodev noatime nodiratime errors=continue"
 
 set -x
@@ -139,7 +139,7 @@ done
 # check if we need to patch the init binary
 if [ "${FOUND_NON_RFS}" == "true" ]; then
 	# patch init to ignore non-RFS mmcblk0p2 (and not format it)
-	sed -i 's/mmcblk0/z4cblk0/g;s/mmcblk0p2/z4cblk0p2/g' /sbin/init
+	sed -i 's/mmcblk0/z4cblk0/g' /sbin/init
 fi
 # allow a secondary wrapper to be executed
 [ -x /z4pre.init.sh ] && /z4pre.init.sh

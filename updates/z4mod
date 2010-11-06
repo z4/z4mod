@@ -108,7 +108,7 @@ if [ "${partition}" == "data" ]; then
 		# flag partition as fat32 for rfs
 		echo -en "\x0C" | busybox dd of=/dev/block/mmcblk0 seek=$((0x1d2))
 	else
-		# flag partition as ext2/3/4
+		# flag partition as linux filesystem
 		echo -en "\x83" | busybox dd of=/dev/block/mmcblk0 seek=$((0x1d2))
 	fi
 fi
