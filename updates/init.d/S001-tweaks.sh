@@ -24,5 +24,5 @@ echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
 
 # Miscellaneous tweaks
 setprop dalvik.vm.startheapsize 8m
-setprop wifi.supplicant_scan_interval 90
+#setprop wifi.supplicant_scan_interval 90
 
