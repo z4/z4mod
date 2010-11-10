@@ -16,12 +16,13 @@ allow any  kernel be rooted, patched, customized,  and yes - replace  RFS with a
 filesystem of your choice. z4mod aim  is to provide standards to the choatic SGS
 platform.
 
-z4mod is a set of two seperate utilities:
+z4mod is a set of three seperate utilities:
 
 + An  automated kernel patch that will  allow the kernel to  mount partitions to
   filesystems  other  than RFS.
 + Android   recovery  scripts  to  convert  the partitions  from  RFS  to  other
   filesystems - "update.zip" files.
++ A z4mod app to apply a lagfix.
 
 The online  kernel patcher aims to  allow anyone without any  knowledge of linux
 the ability to patch a devices kernel in a simple manner. It also provides users

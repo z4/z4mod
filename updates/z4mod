@@ -1,9 +1,18 @@
-#!/sbin/busybox sh
+#!/system/bin/sh
 #
 # z4mod, by Elia Yehuda, (c) 2010, GPLv2
 # backup a partition, format, and restore
 #
 version=-git
+
+# we make sure we have /sdcard mounted
+sdcardmounted=`busybox grep sdcard /proc/mounts`
+if [ "$sdcardmounted" == "" ]; then
+	# mount sdcard according to device node from fota.rc
+	sdcarddev=`busybox grep "mount vfat .* /sdcard" /fota.rc | busybox awk '{print $3}'`
+	mkdir /sdcard
+	busybox mount $sdcarddev /sdcard
+fi
 
 # everything is logged into /sdcard/z4mod.log
 exec >> /sdcard/z4mod.log 2>&1
@@ -14,6 +23,7 @@ export PATH=/:/sbin:/system/xbin:/system/sbin:/system/bin:$PATH
 halt()
 {
 	umount /${partition}
+	[ "$sdcardmounted" == "" ] && busybox umount /sdcard
 	exit 1
 }
 
@@ -27,7 +37,6 @@ busybox cat <<EOF
 EOF
 
 # check we are running under a z4mod-patched initramfs/kernel
-#[ `busybox grep z4mod /*.rc` ] || halt
 [ ! -f /z4version ] && halt
 
 partition="$1"
@@ -64,15 +73,15 @@ if [ "${partition}" == "system" ]; then
 	busybox fuser -mk /system
 fi
 
+# get current filesystem
+currentfs=`busybox grep "${partition}" /proc/mounts | busybox awk '{print $5}'`
+[ "${currentfs}" == "${filesystem}" ] && halt
+# defaulting to rfs
+[ "${currentfs}" == "" ] && currentfs="rfs"
+
 # we unmount just to make sure target is not mounted already
 busybox umount /${partition}
 
-# get current filesystem
-currentfs=`busybox mount | busybox grep "${partition}" | busybox awk '{print $5}'`
-[ "${currentfs}" == "${filesystem}" ] && halt
-
-# defaulting to rfs
-[ "${currentfs}" == "" ] && currentfs="rfs"
 # we must mount target with propriate mount parameters
 if [ "${currentfs}" == "rfs" ]; then
 	# mount using RFS mount parameters - otherwise it will be mounted as FAT, which is bad.
@@ -115,22 +124,26 @@ fi
 
 # Format partition with optimized settings (TODO: restore on error)
 if [ "${filesystem}" == "rfs" ]; then
+	mountopt="llw,check=no,nosuid,nodev"
 	${format_cmd} -F 32 -S 4096 -s 4 ${devblock}
-	# trying to mount it either way - using busybox mount as 'backup' mount...
-	mount -o nosuid,nodev,check=no -t rfs ${devblock} /${partition} || busybox mount -t rfs ${devblock} /${partition} -o nosuid,nodev,check=no
 elif [ "${filesystem}" == "jfs" ]; then
-	# jfs format
+	mountopt="nosuid,nodev,noatime,nodiratime,errors=continue"
 	${format_cmd} -L ${partition} -q ${devblock}
-	# jfs mount
-	busybox mount -t ${filesystem} ${devblock} /${partition} || halt
 else
+	if [ "${filesystem}" == "ext2" ]; then
+		mountopt="nosuid,nodev,noatime,nodiratime,errors=continue,nobh"
+	elif [ "${filesystem}" == "ext3" ]; then
+		mountopt="nosuid,nodev,noatime,nodiratime,errors=continue,nobh,data=writeback,barrier=0"
+	else
+		mountopt="nosuid,nodev,noatime,nodiratime,errors=continue,nobh,data=writeback,barrier=0,noauto_da_alloc"
+	fi
 	# TODO: "-E lazy_itable_init=1 -O sparse_super,uninit_bg" doesnt work on ext2. maybe busybox mount issue?
 	${format_cmd} -q -L ${partition} -b 4096 -m 0 -F ${devblock}
 	# tune the filesystem - check every 100 mounts or 30 days
 	tune2fs -c 100 -i 30d -m 0 ${devblock}
-	# mount the new filesystem - exit on failure (TODO: restore on error)
-	busybox mount -t ${filesystem} ${devblock} /${partition} || halt
 fi
+# mount the new filesystem - exit on failure (TODO: restore on error)
+busybox mount -t ${filesystem} ${devblock} /${partition} -o $mountopt || halt
 
 # this is for the logging...
 busybox mount | busybox grep ${devblock}
@@ -140,8 +153,17 @@ busybox tar xf /sdcard/${partition}.z4mod.tar -C /
 ret=$?
 [ $ret == 0 ] && busybox rm /sdcard/${partition}.z4mod.tar
 
+busybo mount -o remount,rw /system
+busybox touch /system/etc/fstab
+# remove entry if exists already
+busybox sed '\,'$devblock',d' /system/etc/fstab
+# add /system/etc/fstab proper info
+echo "$devblock $filesystem $mountopt" >> /system/etc/fstab
+busybox mount -o remount,ro /system
+
 # umount
 busybox umount ${devblock}
+[ "$sdcardmounted" == "" ] && busybox umount /sdcard
 
 exit $ret
 

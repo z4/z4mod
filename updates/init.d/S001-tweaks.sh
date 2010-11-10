@@ -1,17 +1,7 @@
-#!/sbin/busybox sh
+#!/system/bin/sh
 # 
-# do last changes before system starts
-
-alias cp="busybox cp"
-alias rm="busybox rm"
-alias ls="busybox ls"
-alias ln="busybox ln"
-alias mv="busybox mv"
-alias pwd="busybox pwd"
-alias chmod="busybox chmod"
-alias mount="busybox mount"
-
 # tweaks by 'hardcore' : http://forum.xda-developers.com/showthread.php?t=813309
+
 # Tweak cfq io scheduler
 for i in `ls /sys/block/stl* /sys/block/mmc* /sys/block/bml* /sys/block/tfsr*`; do
 	echo "0" > $i/queue/rotational
@@ -35,18 +25,4 @@ echo "800000" > /proc/sys/kernel/sched_min_granularity_ns
 # Miscellaneous tweaks
 setprop dalvik.vm.startheapsize 8m
 setprop wifi.supplicant_scan_interval 90
-
-# start *.apk install
-mount -o remount,rw /system
-LASTDIR=`pwd`
-cd /res
-for apk in `ls *.apk`; do
-	cp ${apk} /system/app/
-	chmod 0644 /system/app/${apk}
-done
-cd $LASTDIR
-mount -o remount,ro /system
-
-# allow user specific init script to be executed
-[ -x /system/z4mod.init.sh ] && /system/z4mod.init.sh
 

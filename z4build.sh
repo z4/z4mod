@@ -110,7 +110,11 @@ srcdir=`realpath $srcdir`
 KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 version=`cat ${srcdir}/z4version`
 mkdir -p ${wrkdir}/initramfs/{sbin,sd-ext}
+mkdir -p ${wrkdir}/initramfs/{system,cache,data,dbdata}
 mkdir -p ${wrkdir}/initramfs/dev/block
+chmod 0771 ${wrkdir}/initramfs/data
+chmod 0770 ${wrkdir}/initramfs/cache
+
 
 ###############################################################################
 #
@@ -193,11 +197,8 @@ if [ -f ${initfile} ]; then
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
 	cp ${srcdir}/initramfs/init ${wrkdir}/initramfs/init
-	# copy the pre/post-init script
-	cp ${srcdir}/initramfs/z4post.init.sh ${wrkdir}/initramfs/
-	cp ${srcdir}/initramfs/z4pre.init.sh ${wrkdir}/initramfs/
-	# add onetime service to run post.init.sh at the end of init.rc
-	echo -e "\n# Added by z4mod\nservice z4postinit /z4post.init.sh\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
+	# add onetime service to run post init scripts at the end of init.rc
+	echo -e "\n# Added by z4mod\nservice z4postinit /init post\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
 else
 	exit_error "[E] Couldn't find /init executable in the initramfs image"
 fi

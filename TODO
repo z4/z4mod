@@ -1,6 +1,7 @@
 TODO:
 
-- test JFS support
+- compile static JFS support and test
+- init: add fsck check/run
 - z4mod: check the lazy_itable_init option
 - z4mod: Better backup - dump rfs partition as image, 
          mount as loop to restore data, dump using redbend_ua/dd for recovery.
