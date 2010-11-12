@@ -98,10 +98,7 @@ while [ "$*" ]; do
         shift
 done
 
-# FIXME: For now we make sure we use recovery
-do_recovery="true"
-
-printhl "\n[I] z4build ${version} begins, adding non-RFS support to `basename $zImage`"
+printhl "\n[I] z4build ${version} begins, Linuxizing `basename $zImage`"
 
 # We can start working
 wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
@@ -109,12 +106,7 @@ srcdir=`dirname $0`
 srcdir=`realpath $srcdir`
 KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 version=`cat ${srcdir}/z4version`
-mkdir -p ${wrkdir}/initramfs/{sbin,sd-ext}
-mkdir -p ${wrkdir}/initramfs/{system,cache,data,dbdata}
-mkdir -p ${wrkdir}/initramfs/dev/block
-chmod 0771 ${wrkdir}/initramfs/data
-chmod 0770 ${wrkdir}/initramfs/cache
-
+mkdir -p ${wrkdir}/initramfs/{system,sbin,dev/block}
 
 ###############################################################################
 #
@@ -176,77 +168,46 @@ if [ -f ${wrkdir}/initramfs/z4version ] || [ `cmp -s ${srcdir}/initramfs/init ${
 	exit_error "[E] This kernel is already patched with z4build"
 fi
 
-# check for existance of busybox in the initramfs
-if [ -f ${wrkdir}/initramfs/sbin/busybox ] && [ ! -L ${wrkdir}/initramfs/sbin/busybox ]; then
-	# enable do_busybox to override existing busybox
-	bb_size=`ls -l ${wrkdir}/initramfs/sbin/busybox  | awk '{print $5}'`
-	bbz_size=`ls -l ${srcdir}/initramfs/busybox/sbin/busybox  | awk '{print $5}'`
-	if [ $bb_size -gt $bbz_size ]; then
-		do_busybox="true"
-		printhl "[W] Flagging busybox overwrite to save space"
-	fi
-fi
-
 # use real path of the init (in case its a symlink)
 initfile=`realpath ${wrkdir}/initramfs/init`
 #elf_signature=`file -b ${initfile}`
 #if [ "${elf_signature:0:3}" == "ELF" ]; then
 if [ -f ${initfile} ]; then
+	printhl "[I] Searching a replacement to inject z4mod init"
+
+	# calculate how much size z4mod uses (init script and busybox.init if needed)
+	replace_size=$((10000+`ls -l ${srcdir}/initramfs/init | awk '{print $5}'`))
+	if [ ! -f ${wrkdir}/initramfs/sbin/busybox ]; then
+		replace_size=$((replace_size+`ls -l ${srcdir}/initramfs/busybox.init/sbin/busybox | awk '{print $5}'`))
+	fi
+
+	# find a file we can use to store later	
+	replacement_file=""
+	for file in `find ${wrkdir}/initramfs/ -type f ! -name *.ko`; do
+		size=`ls -l $file | awk '{print $5}'`
+		if [ $size -gt $replace_size ]; then
+			replacement_file=$file
+			break
+		fi
+	done
+
+	[ "$replacement_file" == "" ] && exit_error "[E] Could not find a valid replacement file (needed: $replace_size)"
+	printhl "[I] Found replacement: `basename $replacement_file` (`ls -l $replacement_file | awk '{print $5}'`)"
+	mv $replacement_file ${wrkdir}/`basename $replacement_file`
+
 	printhl "[I] Replacing init binary"
 	# move original init to sbin
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
 	cp ${srcdir}/initramfs/init ${wrkdir}/initramfs/init
 	# add onetime service to run post init scripts at the end of init.rc
-	echo -e "\n# Added by z4mod\nservice z4postinit /init post\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
+	echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
+
+	if [ ! -f ${wrkdir}/initramfs/sbin/busybox ]; then
+		cp ${srcdir}/initramfs/busybox.init/sbin/busybox ${wrkdir}/initramfs/sbin/busybox
+	fi
 else
-	exit_error "[E] Couldn't find /init executable in the initramfs image"
-fi
-
-# install recovery
-if [ ! -z "$do_recovery" ]; then
-        printhl "[I] Replacing recovery"
-        # copy files needed for recovery-2e
-        cp -a ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
-        # make sure the recovery script will start our new recovery binary
-        sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
-	sed -i 's|#mount rfs /dev/block/stl11 /cache|mount rfs /dev/block/stl11 /cache|g' ${wrkdir}/initramfs/recovery.rc
-fi
-
-# installing either busybox.init or full-busybox for our init wrapper
-if [ ! -z "$do_busybox" ]; then
-	printhl "[I] Installing full busybox"
-	# copy the full-busybox binary, and replace busybox.init in our init wrappers
-	cp -a ${srcdir}/initramfs/busybox/* ${wrkdir}/initramfs/
-else
-	# linking busybox to recovery
-	ln -s recovery ${wrkdir}/initramfs/sbin/busybox
-fi
-
-# root
-if [ ! -z "$do_root" ]; then
-	printhl "[I] Installing root"
-	# copy files for 'root'
-	cp -a ${srcdir}/initramfs/root/* ${wrkdir}/initramfs/
-	# FIXME: we must do this maually, git doesnt preserve file mode
-	chmod 6755 ${wrkdir}/initramfs/sbin/su
-	# z4post.init.sh will copy the apk to /system/app if needed
-fi
-
-# store version
-cp ${srcdir}/z4version ${wrkdir}/initramfs/
-
-# if user supplied his own rootfile, extract it now
-if [ ! -z "${rootfile}" ]; then
-	[ "${rootfile:0-3}" == "tar" ] && tar xv ${rootfile} -C ${wrkdir}/initramfs
-	# FIXME: this is useless for executables (binaries/scripts) since zip 
-	#        doesn't preserve execution bit
-	[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs
-	# now we make sure our executables can run...
-	chmod +x ${wrkdir}/initramfs/init
-	chmod +x ${wrkdir}/initramfs/z4pre.init.sh
-	chmod +x ${wrkdir}/initramfs/z4post.init.sh
-	for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
+	exit_error "[E] Could not find a valid /init executable in initramfs"
 fi
 
 ###############################################################################
@@ -254,6 +215,12 @@ fi
 # repack the patched initramfs and replace it with orignal initramfs in zImage
 #
 ###############################################################################
+
+if [ ! -z "$do_recovery" ]; then
+	# make sure the recovery script will start our new recovery binary
+	sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
+	sed -i 's|#mount rfs /dev/block/stl11 /cache|mount rfs /dev/block/stl11 /cache|g' ${wrkdir}/initramfs/recovery.rc
+fi
 
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
@@ -263,10 +230,67 @@ rm -f new_zImage
 ${KERNEL_REPACKER} ${zImage} ${wrkdir}/initramfs.img
 popd >/dev/null
 if [ ! -f ${wrkdir}/new_zImage ]; then
-	exit_error "[E] Failed building new zImage"
+        exit_error "[E] Failed building new zImage"
 fi
+oldsize=`ls -l $zImage | awk '{print $5}'`
+newsize=`ls -l ${wrkdir}/new_zImage | awk '{print $5}'`
+
 printhl "[I] Saving $zImage"
 mv ${wrkdir}/new_zImage $zImage
+
+###############################################################################
+#
+# now pack the z4mod archive and add it to the end of zImage
+#
+###############################################################################
+
+rm -rf ${wrkdir}/initramfs/
+mkdir -p ${wrkdir}/initramfs/{sbin,sd-ext}
+mkdir -p ${wrkdir}/initramfs/{cache,data,dbdata}
+chmod 0771 ${wrkdir}/initramfs/data
+chmod 0770 ${wrkdir}/initramfs/cache
+
+install -D ${wrkdir}/`basename $replacement_file` $replacement_file
+
+# install recovery
+if [ ! -z "$do_recovery" ]; then
+	printhl "[I] Adding recovery"
+	# copy files needed for recovery-2e
+	cp -a ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
+fi
+
+# installing full-busybox for our init wrapper
+if [ ! -z "$do_busybox" ]; then
+	printhl "[I] Adding busybox"
+	# copy the full-busybox binary, and replace busybox.init in our init wrappers
+	cp -a ${srcdir}/initramfs/busybox/* ${wrkdir}/initramfs/
+fi
+
+# root
+if [ ! -z "$do_root" ]; then
+	printhl "[I] Adding root"
+	# copy files for 'root'
+	cp -a ${srcdir}/initramfs/root/* ${wrkdir}/initramfs/
+	# FIXME: we must do this maually, git doesnt preserve file mode
+	chmod 6755 ${wrkdir}/initramfs/sbin/su
+fi
+
+# store version
+cp ${srcdir}/z4version ${wrkdir}/initramfs/
+
+# if user supplied his own rootfile, extract it now
+if [ ! -z "${rootfile}" ]; then
+	printhl "[I] Adding user rootfile: $rootfile"
+	[ "${rootfile:0-3}" == "tar" ] && tar xv ${rootfile} -C ${wrkdir}/initramfs
+	# FIXME: this is useless for executables (binaries/scripts) since zip 
+	#        doesn't preserve execution bit
+	[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs
+	# now we make sure our executables can run...
+	for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
+fi
+
+(cd ${wrkdir}/initramfs/; tar zcf ${wrkdir}/z4mod.tar.gz .)
+cat ${wrkdir}/z4mod.tar.gz >> $zImage
 
 rm -rf ${wrkdir}
 printhl "[I] Done."

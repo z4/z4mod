@@ -5,25 +5,25 @@
 # your standard linux init script - create device nodes, mount partitions
 # and execute /sbin/init
 
-export PATH=/system/xbin:/system/bin:$PATH
-
-set -x
-exec >> /z4init.log 2>&1
-
 # TODO: move all aliases to symlinks
 alias ls="busybox ls"
 
 # are we running post-init mode?
-if [ "$1" == "post" ]; then
+if [ $$ != 1 ]; then
 	# execute system-startup scripts
 	for file in `ls /etc/init.d/S*`; do /system/bin/sh "$file"; done
 	exit 0
 fi
 
+export PATH=/system/xbin:/system/bin:$PATH
+
+set -x
+exec >> /z4init.log 2>&1
+
 alias dd="busybox dd"
 alias ln="busybox ln"
-alias awk="busybox awk"
-alias cat="busybox cat"
+alias od="busybox od"
+alias cut="busybox cut"
 alias sed="busybox sed"
 alias tar="busybox tar"
 alias grep="busybox grep"
@@ -35,23 +35,26 @@ alias insmod="busybox insmod"
 mount -t proc none /proc
 mount -t sysfs none /sys
 # insmod all modules in the correct order
-for mod in `awk '/insmod/{print $2}' /init.rc`; do
-        insmod $mod
+for mod in `grep -o 'insmod .*' /init.rc | cut -f 2 -d " "`; do
+	insmod $mod
 done
 
 # create all device nodes
 mknod /dev/null c 1 3
 for dev in `ls -A1d /sys/block/*/dev /sys/block/*/*/dev 2>/dev/null`; do
-	devname=/dev/block/`echo $dev | awk -F/ '{print $--NF}'`
-	devparams=`awk -F: '{print $1" "$2}' $dev`
-	mknod $devname b $devparams
+	devname=`echo $dev | cut -f 5 -d"/"`
+	[ "$devname" == "dev" ] && devname=`echo $dev | cut -f 4 -d"/"`
+	devparams=`sed 's/:/ /' $dev`
+	mknod /dev/block/$devname b $devparams
 done
 
-# TODO: extract the z4mod initramfs
-#dd if=/dev/block/bml7 bs=$offset skip=1 | tar xz -C /
+# extract z4mod initramfs
+offset="`dd if=/dev/block/bml7 bs=4 skip=11 count=1 2>/dev/nulli | od -l`"
+offset=`echo $offset | cut -f 2 -d" "`
+dd if=/dev/block/bml7 bs=$offset skip=1 | tar xz -C /
 
 # mount /system
-system=`grep "mount rfs .* /system" /init.rc | awk '{print $3}'`
+system=`grep -o "mount rfs .* /system" /init.rc | cut -f 3 -d" "`
 magic="`dd if=$system bs=82 skip=1 count=1 2>/dev/null | dd bs=4 count=1 2>/dev/null`"
 if [ "$magic" == "FAT3" ]; then
 	# mount as RFS (nosuid,nodev ??)
@@ -69,7 +72,7 @@ for file in `ls /etc/init.d/P*`; do /system/bin/sh "$file"; done
 mount -va
 mount
 # loop over mounted partitions and disable them in rc scripts
-for part in `awk '/^\/dev/{print $1}' /proc/mounts`; do
+for part in `grep "/dev/block/.*" /proc/mounts | cut -d" " -f 1`; do
 	sed -i 's|mount rfs '"${part}"'.*|#\0|g' /*.rc
 done
 [ "`grep /data /proc/mounts`" != "" ] && sed -i 's/mmcblk0/z4cblk0/g' /sbin/init
@@ -80,5 +83,4 @@ for file in `ls /z4*.sh`; do /system/bin/sh "$file"; done
 # execute early-init scripts
 for file in `ls /etc/init.d/E*`; do /system/bin/sh "$file"; done
 
-#cat /z4init.log >> /system/z4init.log
 exec /sbin/init

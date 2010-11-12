@@ -1,4 +1,4 @@
-#!/system/bin/sh
+#!/sbin/busybox sh
 #
 # z4mod, by Elia Yehuda, (c) 2010, GPLv2
 # backup a partition, format, and restore
