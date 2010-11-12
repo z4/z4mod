@@ -1,5 +1,6 @@
 #!/system/bin/sh
 
+chmod 6755 /sbin/su
 # install Superuser.apk
 if [ ! -f /system/app/Superuser.apk ]; then
 	busybox mount -o remount,rw /system

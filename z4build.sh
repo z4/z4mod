@@ -52,7 +52,6 @@ exit_error() {
 }
 
 exit_usage() {
-
 	options=`(cd ${srcdir}/initramfs; find * -maxdepth 0 -type d ! -name busybox.init)`
 	options=`echo ${options} | sed -s 's/ /\//g'`
 	printhl "\nUsage:"
@@ -255,7 +254,6 @@ done
 
 # making sure non-stanard stuff works...
 for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
-[ -f ${wrkdir}/initramfs/sbin/su ] && chmod 6755 ${wrkdir}/initramfs/sbin/su
 # store version
 cp ${srcdir}/z4version ${wrkdir}/initramfs/
 
