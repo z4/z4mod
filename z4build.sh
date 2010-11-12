@@ -216,12 +216,6 @@ fi
 #
 ###############################################################################
 
-if [ ! -z "$do_recovery" ]; then
-	# make sure the recovery script will start our new recovery binary
-	sed -i 's|^service recovery.*|service recovery /sbin/recovery|g' ${wrkdir}/initramfs/recovery.rc
-	sed -i 's|#mount rfs /dev/block/stl11 /cache|mount rfs /dev/block/stl11 /cache|g' ${wrkdir}/initramfs/recovery.rc
-fi
-
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
 printhl "[I] Repacking zImage"
@@ -245,7 +239,7 @@ mv ${wrkdir}/new_zImage $zImage
 ###############################################################################
 
 rm -rf ${wrkdir}/initramfs/
-mkdir -p ${wrkdir}/initramfs/{sbin,sd-ext}
+mkdir -p ${wrkdir}/initramfs/sbin
 mkdir -p ${wrkdir}/initramfs/{cache,data,dbdata}
 chmod 0771 ${wrkdir}/initramfs/data
 chmod 0770 ${wrkdir}/initramfs/cache
