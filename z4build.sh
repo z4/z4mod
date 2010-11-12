@@ -52,14 +52,14 @@ exit_error() {
 }
 
 exit_usage() {
+
+	options=`(cd ${srcdir}/initramfs; find * -maxdepth 0 -type d ! -name busybox.init)`
+	options=`echo ${options} | sed -s 's/ /\//g'`
 	printhl "\nUsage:"
-	echo    "  z4build <zImage> [recovery] [root] [busybox] [-t <file.tar>]"
+	echo    "  z4build <zImage> [options] [-t <file.tar>]"
 	printhl "\nWhere:"
 	echo    "zImage      = the zImage file (kernel) you wish to patch"
-	#echo    "z4mod       = [optional] install z4mod wrapper for ext2/3/4"
-	echo    "recovery    = [optional] install recovery into initramfs"
-	echo    "root        = [optional] install root into initramfs"
-	echo    "busybox     = [optional] install busybox into initramfs"
+	echo    "options     = [$options] install into initramfs"
 	echo    "-t file.tar = [optional] extract file.tar over initramfs"
 	echo
 	exit 1
@@ -71,7 +71,15 @@ exit_usage() {
 #
 ###############################################################################
 
+srcdir=`dirname $0`
+srcdir=`realpath $srcdir`
+
 # Making sure we have everything
+if [ $# -eq 0 ]; then
+	printerr "[E] Wrong parameters"
+	exit_usage
+fi
+
 zImage=`realpath $1`
 shift
 if [ -z $zImage ] || [ ! -f $zImage ]; then
@@ -83,8 +91,6 @@ printhl "\n[I] z4build ${version} begins, Linuxizing `basename $zImage`"
 
 # We can start working
 wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
-srcdir=`dirname $0`
-srcdir=`realpath $srcdir`
 KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 version=`cat ${srcdir}/z4version`
 mkdir -p ${wrkdir}/initramfs/{system,sbin,dev/block}
