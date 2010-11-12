@@ -153,7 +153,7 @@ busybox tar xf /sdcard/${partition}.z4mod.tar -C /
 ret=$?
 [ $ret == 0 ] && busybox rm /sdcard/${partition}.z4mod.tar
 
-busybo mount -o remount,rw /system
+busybox mount -o remount,rw /system
 busybox touch /system/etc/fstab
 # remove entry if exists already
 busybox sed '\,'$devblock',d' /system/etc/fstab
