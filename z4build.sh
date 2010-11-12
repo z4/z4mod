@@ -79,25 +79,6 @@ if [ -z $zImage ] || [ ! -f $zImage ]; then
 	exit_usage
 fi
 
-# not needed anymore?
-#if [ $# -eq 0 -o $# -gt 3 ]; then
-#	printerr "[E] Wrong parameters"
-#	exit_usage
-#fi
-
-while [ "$*" ]; do
-	if [ "$1" == "-t" ]; then
-		shift
-		rootfile=`realpath $1`
-		if [ ! -f "${rootfile}" ]; then
-			exit_error "[E] Can't find user supplied rootfile"
-		fi
-	else
-		eval do_${1}="true"
-	fi
-        shift
-done
-
 printhl "\n[I] z4build ${version} begins, Linuxizing `basename $zImage`"
 
 # We can start working
@@ -244,44 +225,33 @@ mkdir -p ${wrkdir}/initramfs/{cache,data,dbdata}
 chmod 0771 ${wrkdir}/initramfs/data
 chmod 0770 ${wrkdir}/initramfs/cache
 
+# install the file we moved from original initramfs before
 install -D ${wrkdir}/`basename $replacement_file` $replacement_file
 
-# install recovery
-if [ ! -z "$do_recovery" ]; then
-	printhl "[I] Adding recovery"
-	# copy files needed for recovery-2e
-	cp -a ${srcdir}/initramfs/recovery/* ${wrkdir}/initramfs/
-fi
+# copy files/directories according to options provided
+while [ "$*" ]; do
+	if [ "$1" == "-t" ]; then
+		# if user supplied his own rootfile, extract it
+		shift
+		rootfile=`realpath $1`
+		if [ ! -f "${rootfile}" ]; then
+			exit_error "[E] Can't find user supplied rootfile: $rootfile"
+		fi
+		printhl "[I] Adding user rootfile: $rootfile"
+		[ "${rootfile:0-3}" == "tar" ] && tar xv ${rootfile} -C ${wrkdir}/initramfs
+		[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs
+	else
+		# copy files of selected option
+		cp -a ${srcdir}/initramfs/$1/* ${wrkdir}/initramfs/
+	fi
+        shift
+done
 
-# installing full-busybox for our init wrapper
-if [ ! -z "$do_busybox" ]; then
-	printhl "[I] Adding busybox"
-	# copy the full-busybox binary, and replace busybox.init in our init wrappers
-	cp -a ${srcdir}/initramfs/busybox/* ${wrkdir}/initramfs/
-fi
-
-# root
-if [ ! -z "$do_root" ]; then
-	printhl "[I] Adding root"
-	# copy files for 'root'
-	cp -a ${srcdir}/initramfs/root/* ${wrkdir}/initramfs/
-	# FIXME: we must do this maually, git doesnt preserve file mode
-	chmod 6755 ${wrkdir}/initramfs/sbin/su
-fi
-
+# making sure non-stanard stuff works...
+for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
+[ -f ${wrkdir}/initramfs/sbin/su ] && chmod 6755 ${wrkdir}/initramfs/sbin/su
 # store version
 cp ${srcdir}/z4version ${wrkdir}/initramfs/
-
-# if user supplied his own rootfile, extract it now
-if [ ! -z "${rootfile}" ]; then
-	printhl "[I] Adding user rootfile: $rootfile"
-	[ "${rootfile:0-3}" == "tar" ] && tar xv ${rootfile} -C ${wrkdir}/initramfs
-	# FIXME: this is useless for executables (binaries/scripts) since zip 
-	#        doesn't preserve execution bit
-	[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs
-	# now we make sure our executables can run...
-	for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
-fi
 
 (cd ${wrkdir}/initramfs/; tar zcf ${wrkdir}/z4mod.tar.gz .)
 cat ${wrkdir}/z4mod.tar.gz >> $zImage
