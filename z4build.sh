@@ -52,7 +52,7 @@ exit_error() {
 }
 
 exit_usage() {
-	options=`(cd ${srcdir}/initramfs; find * -maxdepth 0 -type d ! -name busybox.init)`
+	options=`(cd ${srcdir}/initramfs; find * -maxdepth 0 -type d ! -name z4mod)`
 	options=`echo ${options} | sed -s 's/ /\//g'`
 	printhl "\nUsage:"
 	echo    "  z4build <zImage> [options] [-t <file.tar>]"
@@ -161,10 +161,10 @@ initfile=`realpath ${wrkdir}/initramfs/init`
 if [ -f ${initfile} ]; then
 	printhl "[I] Searching a replacement to inject z4mod init"
 
-	# calculate how much size z4mod uses (init script and busybox.init if needed)
-	replace_size=$((10000+`ls -l ${srcdir}/initramfs/init | awk '{print $5}'`))
+	# calculate how much size z4mod uses (init script and tiny busybox if needed)
+	replace_size=$((10000+`ls -l ${srcdir}/initramfs/z4mod/init | awk '{print $5}'`))
 	if [ ! -f ${wrkdir}/initramfs/sbin/busybox ]; then
-		replace_size=$((replace_size+`ls -l ${srcdir}/initramfs/busybox.init/sbin/busybox | awk '{print $5}'`))
+		replace_size=$((replace_size+`ls -l ${srcdir}/initramfs/z4mod/sbin/busybox | awk '{print $5}'`))
 	fi
 
 	# find a file we can use to store later	
@@ -185,12 +185,12 @@ if [ -f ${initfile} ]; then
 	# move original init to sbin
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
-	cp ${srcdir}/initramfs/init ${wrkdir}/initramfs/init
+	cp ${srcdir}/initramfs/z4mod/init ${wrkdir}/initramfs/init
 	# add onetime service to run post init scripts at the end of init.rc
 	echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
 
 	if [ ! -f ${wrkdir}/initramfs/sbin/busybox ]; then
-		cp ${srcdir}/initramfs/busybox.init/sbin/busybox ${wrkdir}/initramfs/sbin/busybox
+		cp ${srcdir}/initramfs/z4mod/sbin/busybox ${wrkdir}/initramfs/sbin/busybox
 	fi
 else
 	exit_error "[E] Could not find a valid /init executable in initramfs"
@@ -247,6 +247,7 @@ while [ "$*" ]; do
 		[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs
 	else
 		# copy files of selected option
+		printhl "[I] Adding $1"
 		cp -a ${srcdir}/initramfs/$1/* ${wrkdir}/initramfs/
 	fi
         shift
@@ -257,6 +258,7 @@ for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
 # store version
 cp ${srcdir}/z4version ${wrkdir}/initramfs/
 
+printhl "[I] Injecting z4mod compressed image"
 (cd ${wrkdir}/initramfs/; tar zcf ${wrkdir}/z4mod.tar.gz .)
 cat ${wrkdir}/z4mod.tar.gz >> $zImage
 
