@@ -179,13 +179,10 @@ if [ -f ${initfile} ]; then
 
 	printhl "[I] Replacing init binary"
 	# move original init to sbin
-set -x
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
 	cp -a ${srcdir}/initramfs/z4mod ${wrkdir}/initramfs/
 	ln -s /z4mod/init ${initfile}
-set +x
-bash
 	# add onetime service to run post init scripts at the end of init.rc
 	echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
 else
