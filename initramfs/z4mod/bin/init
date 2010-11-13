@@ -1,12 +1,10 @@
-#!/sbin/busybox sh
+#!/z4mod/bin/sh
 #
 # z4mod init wrapper, (c) 2010 Elia Yehuda, GPLv2
 #
 # your standard linux init script - create device nodes, mount partitions
 # and execute /sbin/init
-
-# TODO: move all aliases to symlinks
-alias ls="busybox ls"
+PATH=/z4mod/bin:/sbin:/system/xbin:/system/bin:$PATH
 
 # are we running post-init mode?
 if [ $$ != 1 ]; then
@@ -15,21 +13,8 @@ if [ $$ != 1 ]; then
 	exit 0
 fi
 
-export PATH=/system/xbin:/system/bin:$PATH
-
 set -x
-exec >> /z4init.log 2>&1
-
-alias dd="busybox dd"
-alias ln="busybox ln"
-alias od="busybox od"
-alias cut="busybox cut"
-alias sed="busybox sed"
-alias tar="busybox tar"
-alias grep="busybox grep"
-alias mount="busybox mount"
-alias mknod="busybox mknod"
-alias insmod="busybox insmod"
+exec >> /z4mod/log/init 2>&1
 
 # we must have proc mounted
 mount -t proc none /proc

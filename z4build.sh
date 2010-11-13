@@ -153,7 +153,6 @@ printhl "[I] Extracting initramfs compressed image"
 if [ `cmp -s ${srcdir}/initramfs/z4mod/init ${wrkdir}/initramfs/init; echo $?` -eq 0 ]; then
 	exit_error "[E] This kernel is already patched with z4build"
 fi
-need_bb=`test -f ${wrkdir}/initramfs/sbin/busybox || echo 1`
 # use real path of the init (in case its a symlink)
 initfile=`realpath ${wrkdir}/initramfs/init`
 #elf_signature=`file -b ${initfile}`
@@ -161,8 +160,8 @@ initfile=`realpath ${wrkdir}/initramfs/init`
 if [ -f ${initfile} ]; then
 	printhl "[I] Searching a replacement to inject z4mod init"
 	# calculate how much size z4mod uses (init script and tiny busybox if needed)
-	replace_size=$((10000+`stat -c%s ${srcdir}/initramfs/z4mod/init`))
-	[ $need_bb ] && replace_size=$((replace_size+`stat -c%s ${srcdir}/initramfs/z4mod/sbin/busybox`))
+	replace_size=$((4096+`stat -c%s ${srcdir}/initramfs/z4mod/bin/init`))
+	replace_size=$((replace_size+`stat -c%s ${srcdir}/initramfs/z4mod/bin/busybox`))
 
 	# find a file big enough to replace our init script/busybox	
 	replacement_file=""
@@ -180,10 +179,13 @@ if [ -f ${initfile} ]; then
 
 	printhl "[I] Replacing init binary"
 	# move original init to sbin
+set -x
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
-	cp ${srcdir}/initramfs/z4mod/init ${wrkdir}/initramfs/init
-	[ $need_bb ] && cp ${srcdir}/initramfs/z4mod/sbin/busybox ${wrkdir}/initramfs/sbin/busybox
+	cp -a ${srcdir}/initramfs/z4mod ${wrkdir}/initramfs/
+	ln -s /z4mod/init ${initfile}
+set +x
+bash
 	# add onetime service to run post init scripts at the end of init.rc
 	echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
 else
@@ -219,8 +221,8 @@ mv ${wrkdir}/new_zImage $zImage
 ###############################################################################
 
 rm -rf ${wrkdir}/initramfs/
-mkdir -p ${wrkdir}/initramfs/sbin
-mkdir -p ${wrkdir}/initramfs/{cache,data,dbdata}
+mkdir -p ${wrkdir}/initramfs/{sbin,cache,data,dbdata}
+mkdir -p ${wrkdir}/initramfs/z4mod/{bin,log}
 chmod 0771 ${wrkdir}/initramfs/data
 chmod 0770 ${wrkdir}/initramfs/cache
 
@@ -250,7 +252,7 @@ done
 # making sure non-stanard stuff works...
 for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
 # store version
-cp ${srcdir}/z4version ${wrkdir}/initramfs/
+cp ${srcdir}/z4version ${wrkdir}/initramfs/z4mod/
 
 printhl "[I] Injecting z4mod compressed image"
 (cd ${wrkdir}/initramfs/; tar zcf ${wrkdir}/z4mod.tar.gz .)
