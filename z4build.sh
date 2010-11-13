@@ -92,7 +92,7 @@ printhl "\n[I] z4build ${version} begins, Linuxizing `basename $zImage`"
 wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
 KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 version=`cat ${srcdir}/z4version`
-mkdir -p ${wrkdir}/initramfs/{system,sbin,dev/block}
+mkdir -p ${wrkdir}/initramfs/{system,sbin,dev/block,z4mod/log}
 
 ###############################################################################
 #
