@@ -153,7 +153,6 @@ printhl "[I] Extracting initramfs compressed image"
 if [ `cmp -s ${srcdir}/initramfs/z4mod/init ${wrkdir}/initramfs/init; echo $?` -eq 0 ]; then
 	exit_error "[E] This kernel is already patched with z4build"
 fi
-bash
 need_bb=`test -f ${wrkdir}/initramfs/sbin/busybox || echo 1`
 # use real path of the init (in case its a symlink)
 initfile=`realpath ${wrkdir}/initramfs/init`
