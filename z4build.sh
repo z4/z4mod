@@ -182,7 +182,7 @@ if [ -f ${initfile} ]; then
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
 	cp -a ${srcdir}/initramfs/z4mod ${wrkdir}/initramfs/
-	ln -s /z4mod/init ${initfile}
+	ln -s /z4mod/bin/init ${initfile}
 	# add onetime service to run post init scripts at the end of init.rc
 	echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
 else
