@@ -161,13 +161,13 @@ initfile=`realpath ${wrkdir}/initramfs/init`
 if [ -f ${initfile} ]; then
 	printhl "[I] Searching a replacement to inject z4mod init"
 	# calculate how much size z4mod uses (init script and tiny busybox if needed)
-	replace_size=$((10000+`ls -l ${srcdir}/initramfs/z4mod/init | awk '{print $5}'`))
-	[ $need_bb ] && replace_size=$((replace_size+`ls -l ${srcdir}/initramfs/z4mod/sbin/busybox | awk '{print $5}'`))
+	replace_size=$((10000+`stat -c%s ${srcdir}/initramfs/z4mod/init`))
+	[ $need_bb ] && replace_size=$((replace_size+`stat -c%s ${srcdir}/initramfs/z4mod/sbin/busybox`))
 
 	# find a file big enough to replace our init script/busybox	
 	replacement_file=""
 	for file in `find ${wrkdir}/initramfs/ -type f ! -name *.ko`; do
-		size=`ls -l $file | awk '{print $5}'`
+		size=`stat -c%s $file`
 		if [ $size -gt $replace_size ]; then
 			replacement_file=$file
 			break
@@ -175,7 +175,7 @@ if [ -f ${initfile} ]; then
 	done
 
 	[ "$replacement_file" == "" ] && exit_error "[E] Could not find a valid replacement file (needed: $replace_size)"
-	printhl "[I] Found replacement: `basename $replacement_file` (`ls -l $replacement_file | awk '{print $5}'`)"
+	printhl "[I] Found replacement: `basename $replacement_file` (`stat -c%s $replacement_file`)"
 	mv $replacement_file ${wrkdir}/`basename $replacement_file`
 
 	printhl "[I] Replacing init binary"
