@@ -150,24 +150,22 @@ printhl "[I] Extracting initramfs compressed image"
 (cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
 
 # check if this kernel is patched already with z4build
-if [ -f ${wrkdir}/initramfs/z4version ] || [ `cmp -s ${srcdir}/initramfs/init ${wrkdir}/initramfs/init` ]; then
+if [ `cmp -s ${srcdir}/initramfs/z4mod/init ${wrkdir}/initramfs/init; echo $?` -eq 0 ]; then
 	exit_error "[E] This kernel is already patched with z4build"
 fi
-
+bash
+need_bb=`test -f ${wrkdir}/initramfs/sbin/busybox || echo 1`
 # use real path of the init (in case its a symlink)
 initfile=`realpath ${wrkdir}/initramfs/init`
 #elf_signature=`file -b ${initfile}`
 #if [ "${elf_signature:0:3}" == "ELF" ]; then
 if [ -f ${initfile} ]; then
 	printhl "[I] Searching a replacement to inject z4mod init"
-
 	# calculate how much size z4mod uses (init script and tiny busybox if needed)
 	replace_size=$((10000+`ls -l ${srcdir}/initramfs/z4mod/init | awk '{print $5}'`))
-	if [ ! -f ${wrkdir}/initramfs/sbin/busybox ]; then
-		replace_size=$((replace_size+`ls -l ${srcdir}/initramfs/z4mod/sbin/busybox | awk '{print $5}'`))
-	fi
+	[ $need_bb ] && replace_size=$((replace_size+`ls -l ${srcdir}/initramfs/z4mod/sbin/busybox | awk '{print $5}'`))
 
-	# find a file we can use to store later	
+	# find a file big enough to replace our init script/busybox	
 	replacement_file=""
 	for file in `find ${wrkdir}/initramfs/ -type f ! -name *.ko`; do
 		size=`ls -l $file | awk '{print $5}'`
@@ -186,12 +184,9 @@ if [ -f ${initfile} ]; then
 	mv ${initfile} ${wrkdir}/initramfs/sbin/init
 	# and place our init wrapper instead of /init
 	cp ${srcdir}/initramfs/z4mod/init ${wrkdir}/initramfs/init
+	[ $need_bb ] && cp ${srcdir}/initramfs/z4mod/sbin/busybox ${wrkdir}/initramfs/sbin/busybox
 	# add onetime service to run post init scripts at the end of init.rc
 	echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
-
-	if [ ! -f ${wrkdir}/initramfs/sbin/busybox ]; then
-		cp ${srcdir}/initramfs/z4mod/sbin/busybox ${wrkdir}/initramfs/sbin/busybox
-	fi
 else
 	exit_error "[E] Could not find a valid /init executable in initramfs"
 fi
