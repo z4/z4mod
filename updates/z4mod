@@ -5,6 +5,10 @@
 #
 version=-git
 
+alias test="busybox test"
+alias [="busybox ["
+alias ]="busybox ]"
+
 # we make sure we have /sdcard mounted
 sdcardmounted=`busybox grep sdcard /proc/mounts`
 if [ "$sdcardmounted" == "" ]; then
