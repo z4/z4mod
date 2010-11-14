@@ -37,7 +37,7 @@ busybox cat <<EOF
 EOF
 
 # check we are running under a z4mod-patched initramfs/kernel
-[ ! -f /z4version ] && halt
+[ ! -f /z4mod/z4version ] && halt
 
 partition="$1"
 devblock=/dev/block/"$2"
