@@ -108,14 +108,14 @@ dd status=noxfer if=$zImage bs=$pos skip=1 | gunzip -q > ${wrkdir}/kernel.img
 #=======================================================
 # Determine if the cpio inside the zImage is gzipped
 #=======================================================
-cpio_found="FALSE"
+cpio_is_compressed="FALSE"
 gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img`
 for possible_gzip_start in $gzip_start_arr; do
 	possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
 	dd status=noxfer if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 | gunzip -q > ${wrkdir}/cpio.img
 	if [ $? -ne 1 ]; then
 		printhl "[I] gzipped archive detected"
-		cpio_found="TRUE"
+		cpio_is_compressed="TRUE"
 		printhl "[I] Using gzipped archive as cpio"
 		mv ${wrkdir}/cpio.img ${wrkdir}/initramfs.img
 		break
@@ -127,7 +127,7 @@ done
 # find start of the "cpio" initramfs image inside the kernel object:
 # ASCII cpio header starts with '070701'
 #===========================================================================
-if [ "$cpio_found" == "FALSE" ]; then
+if [ "$cpio_is_compressed" == "FALSE" ]; then
 	printhl "[I] Finding non gzipped cpio start position"
 	start=`grep -F -a -b -m 1 --only-matching '070701' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
 
@@ -197,6 +197,10 @@ fi
 
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
+if [ "$cpio_is_compressed" == "TRUE" ]; then
+	gzip -f9c  ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.gz
+	mv  ${wrkdir}/initramfs.img.gz  ${wrkdir}/initramfs.img
+fi
 printhl "[I] Repacking zImage"
 pushd ${wrkdir} >/dev/null
 rm -f new_zImage
