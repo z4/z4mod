@@ -3,11 +3,8 @@
 # z4mod, by Elia Yehuda, (c) 2010, GPLv2
 # backup a partition, format, and restore
 #
-version=-git
-
-alias test="busybox test"
-alias [="busybox ["
-alias ]="busybox ]"
+export PATH=/z4mod/bin:/:/sbin:/system/xbin:/system/bin:$PATH
+version=0.12
 
 # we make sure we have /sdcard mounted
 sdcardmounted=`busybox grep sdcard /proc/mounts`
@@ -20,13 +17,12 @@ fi
 
 # everything is logged into /sdcard/z4mod.log
 exec >> /sdcard/z4mod.log 2>&1
-
+export PATH=/z4mod/bin:/:/sbin:/system/xbin:/system/bin:$PATH
 set -x
-export PATH=/:/sbin:/system/xbin:/system/bin:$PATH
 
 halt()
 {
-	umount /${partition}
+	busybox umount /${partition}
 	[ "$sdcardmounted" == "" ] && busybox umount /sdcard
 	exit 1
 }
@@ -162,7 +158,7 @@ busybox touch /system/etc/fstab
 # remove entry if exists already
 busybox sed '\,'$devblock',d' /system/etc/fstab
 # add /system/etc/fstab proper info
-echo "$devblock $filesystem $mountopt" >> /system/etc/fstab
+echo "$devblock /${partition} $filesystem $mountopt" >> /system/etc/fstab
 busybox mount -o remount,ro /system
 
 # umount

@@ -198,6 +198,7 @@ fi
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
 if [ "$cpio_is_compressed" == "TRUE" ]; then
+	printhl "[I] Compressing initramfs.img"
 	gzip -f9c  ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.gz
 	mv  ${wrkdir}/initramfs.img.gz  ${wrkdir}/initramfs.img
 fi
