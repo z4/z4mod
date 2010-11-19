@@ -4,7 +4,7 @@
 #
 # your standard linux init script - create device nodes, mount partitions
 # and execute /sbin/init
-PATH=/z4mod/bin:/sbin:/system/xbin:/system/bin:$PATH
+export PATH=/z4mod/bin:/sbin:/system/xbin:/system/bin:$PATH
 
 # are we running post-init mode?
 if [ $$ != 1 ]; then
@@ -15,6 +15,7 @@ fi
 
 set -x
 exec >> /z4mod/log/init 2>&1
+export PATH=/z4mod/bin:/:/sbin:/system/xbin:/system/bin:$PATH
 
 # we must have proc mounted
 mount -t proc none /proc
