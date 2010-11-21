@@ -149,6 +149,8 @@ fi
 printhl "[I] Extracting initramfs compressed image"
 (cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
 
+bash
+
 # check if this kernel is patched already with z4build
 if [ `cmp -s ${srcdir}/initramfs/z4mod/init ${wrkdir}/initramfs/init; echo $?` -eq 0 ]; then
 	exit_error "[E] This kernel is already patched with z4build"
@@ -162,7 +164,6 @@ if [ -f ${initfile} ]; then
 	# calculate how much size z4mod uses (init script and tiny busybox if needed)
 	replace_size=$((4096+`stat -c%s ${srcdir}/initramfs/z4mod/bin/init`))
 	replace_size=$((replace_size+`stat -c%s ${srcdir}/initramfs/z4mod/bin/busybox`))
-
 	# find a file big enough to replace our init script/busybox	
 	replacement_file=""
 	for file in `find ${wrkdir}/initramfs/ -type f ! -name *.ko`; do
@@ -197,11 +198,11 @@ fi
 
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
-if [ "$cpio_is_compressed" == "TRUE" ]; then
-	printhl "[I] Compressing initramfs.img"
-	gzip -f9c  ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.gz
-	mv  ${wrkdir}/initramfs.img.gz  ${wrkdir}/initramfs.img
-fi
+#if [ "$cpio_is_compressed" == "TRUE" ]; then
+#	printhl "[I] Compressing initramfs.img"
+#	gzip -f9c  ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.gz
+#	mv  ${wrkdir}/initramfs.img.gz  ${wrkdir}/initramfs.img
+#fi
 printhl "[I] Repacking zImage"
 pushd ${wrkdir} >/dev/null
 rm -f new_zImage

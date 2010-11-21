@@ -77,7 +77,7 @@ if [ "${partition}" == "system" ]; then
 fi
 
 # get current filesystem
-currentfs=`busybox grep "/${partition}" /etc/fstab | busybox awk '{print $3}'`
+currentfs=`busybox grep -m1 "/${partition}" /etc/fstab | busybox awk '{print $3}'`
 [ "${currentfs}" == "${filesystem}" ] && halt
 # defaulting to rfs
 [ "${currentfs}" == "" ] && currentfs="rfs"
