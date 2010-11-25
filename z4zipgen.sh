@@ -40,6 +40,7 @@ get_system_files()
 	for file in `find system/ ! -type d`; do
 		if [ -L $file ]; then
 			echo -e "symlink(\"$(readlink $file)\", \"/$file\");\\"
+			unlink $file
 		else
 			echo -e "delete(\"$file\");\\\npackage_extract_file(\"$file\", \"/$file\");\\"
 			if [ "apk" == "${file##*.}" ]; then
@@ -119,10 +120,10 @@ case "${filesystem}" in
 		# copy required tools
 		cp -r ${srcdir}/updates/jfsutils/* ${wrkdir}/
 		cp -r ${srcdir}/updates/e2fsprogs/* ${wrkdir}/
-		cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext3
-		cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext3
-		cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext4
-		cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext4
+		#cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext3
+		#cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext3
+		#cp ${srcdir}/updates/e2fsprogs/system/xbin/mkfs.ext2 ${wrkdir}/system/xbin/mkfs.ext4
+		#cp ${srcdir}/updates/e2fsprogs/system/xbin/fsck.ext2 ${wrkdir}/system/xbin/fsck.ext4
 		;;
 	*)
 		# remove the z4mod convert section from updater-script
@@ -150,6 +151,7 @@ sed -i 's|package_extract_dir("system", "/system");|'"`get_system_files`"\n'|g' 
 sed -i 's/Version .*/Version '$version'\");/g' ${script}
 
 # create the update.zip file
+rm -f $output
 (cd ${wrkdir}; zip -r $output META-INF/ sbin/ system/ $zImagefiles)
 # cleanup
 rm -rf ${wrkdir}

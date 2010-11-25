@@ -131,7 +131,9 @@ fi
 if [ "${filesystem}" == "rfs" ]; then
 	mountopt="llw,check=no,nosuid,nodev"
 	#${format_cmd} -F 32 -S 4096 -s 4 ${devblock}
-	${format_cmd} ${devblock}
+	#${format_cmd} ${devblock}
+	mkfs.vfat ${devblock}
+	fat.format -F 32 -S 4096 -s 4 ${devblock}
 elif [ "${filesystem}" == "jfs" ]; then
 	mountopt="nosuid,nodev,noatime,nodiratime,errors=continue"
 	${format_cmd} -L ${partition} -q ${devblock}

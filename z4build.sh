@@ -55,13 +55,45 @@ exit_usage() {
 	options=`(cd ${srcdir}/initramfs; find * -maxdepth 0 -type d ! -name z4mod)`
 	options=`echo ${options} | sed -s 's/ /\//g'`
 	printhl "\nUsage:"
-	echo    "  z4build <zImage> [options] [-t <file.tar>]"
+	echo    "  z4build <zImage> [-z zImage] [options] [-t <file.tar>]"
 	printhl "\nWhere:"
 	echo    "zImage      = the zImage file (kernel) you wish to patch"
+	echo    "-z zImage   = [optional] use initramfs from a different zImage"
 	echo    "options     = [$options] install into initramfs"
 	echo    "-t file.tar = [optional] extract file.tar over initramfs"
 	echo
 	exit 1
+}
+
+get_initramfs_img() {
+	local zImagex=$1
+	# find start of gziped kernel object in the zImage file:
+	pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImagex | cut -f 1 -d :`
+	printhl "[I] Extracting kernel image from $zImagex (start = $pos)"
+	dd status=noxfer if=$zImagex bs=$pos skip=1 2>/dev/null| gunzip -q > ${wrkdir}/kernel.img
+
+	# find start of the "cpio" initramfs image inside the kernel object:
+	# ASCII cpio header starts with '070701'
+	printhl "[I] Searching for cpio start position"
+	start=`grep -F -a -b -m 1 --only-matching '070701' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
+	if [ "$start" == "" ]; then
+		printhl "[I] Searching for gzipped start position"
+		# Determine if the cpio inside the zImage is gzipped
+		gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img`
+		for possible_gzip_start in $gzip_start_arr; do
+			possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
+			dd status=noxfer if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 2>/dev/null| gunzip -q > ${wrkdir}/cpio.img
+			if [ $? -ne 1 ]; then
+				printhl "[I] Extracting gzipped initramfs image from kernel (start = $possible_gzip_start)"
+				mv ${wrkdir}/cpio.img ${wrkdir}/initramfs.img
+				return
+			fi
+		done
+		exit_error "[E] Could not find a valid initramfs image"
+	fi
+
+	printhl "[I] Extracting initramfs image from kernel (start = $start)"
+	dd status=noxfer if=${wrkdir}/kernel.img bs=$start skip=1 > ${wrkdir}/initramfs.img 2>/dev/null
 }
 
 ###############################################################################
@@ -86,58 +118,13 @@ if [ -z $zImage ] || [ ! -f $zImage ]; then
 	exit_usage
 fi
 
-printhl "\n[I] z4build ${version} begins, Linuxizing `basename $zImage`"
-
 # We can start working
 wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
 KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 version=`cat ${srcdir}/z4version`
 mkdir -p ${wrkdir}/initramfs/{system,sbin,dev/block,z4mod/log}
 
-###############################################################################
-#
-# extract the initramfs.img from zImage
-#
-###############################################################################
-
-# find start of gziped kernel object in the zImage file:
-pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImage | cut -f 1 -d :`
-printhl "[I] Extracting kernel image from $zImage (start = $pos)"
-dd status=noxfer if=$zImage bs=$pos skip=1 | gunzip -q > ${wrkdir}/kernel.img
-
-#=======================================================
-# Determine if the cpio inside the zImage is gzipped
-#=======================================================
-cpio_is_compressed="FALSE"
-gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img`
-for possible_gzip_start in $gzip_start_arr; do
-	possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
-	dd status=noxfer if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 | gunzip -q > ${wrkdir}/cpio.img
-	if [ $? -ne 1 ]; then
-		printhl "[I] gzipped archive detected"
-		cpio_is_compressed="TRUE"
-		printhl "[I] Using gzipped archive as cpio"
-		mv ${wrkdir}/cpio.img ${wrkdir}/initramfs.img
-		break
-	fi
-done
-
-#===========================================================================
-# If the cpio was not gzipped, we need to find the start
-# find start of the "cpio" initramfs image inside the kernel object:
-# ASCII cpio header starts with '070701'
-#===========================================================================
-if [ "$cpio_is_compressed" == "FALSE" ]; then
-	printhl "[I] Finding non gzipped cpio start position"
-	start=`grep -F -a -b -m 1 --only-matching '070701' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
-
-	if [ "$start" == "" ]; then
-		exit_error "[E] Could not detect a CPIO Archive!"
-	fi
-	
-	printhl "[I] Extracting initramfs image from kernel (start = $start)"
-	dd status=noxfer if=${wrkdir}/kernel.img bs=$start skip=1 > ${wrkdir}/initramfs.img
-fi
+printhl "\n[I] z4build ${version} begins, Linuxizing `basename $zImage` ...\n"
 
 ###############################################################################
 #
@@ -146,49 +133,74 @@ fi
 #
 ###############################################################################
 
-printhl "[I] Extracting initramfs compressed image"
-(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img)
+get_initramfs_img $zImage
+if [ "$1" == "-z" ]; then
+	printhl "[I] Extracting initramfs image (`basename $zImage`)"
+	mkdir ${wrkdir}/initramfs.tmp
+	(cd ${wrkdir}/initramfs.tmp/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
+	get_initramfs_img `realpath $2`
+	printhl "[I] Extracting initramfs image (`basename $2`)"
+	shift; shift
+	(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
+	printhl "[I] Copying modules from original initramfs"
+	cp -a ${wrkdir}/initramfs.tmp/lib/modules/* ${wrkdir}/initramfs/lib/modules/
+	cp -a ${wrkdir}/initramfs.tmp/modules/* ${wrkdir}/initramfs/modules/
+	rm -r ${wrkdir}/initramfs.tmp
+else
+	printhl "[I] Extracting initramfs image"
+	(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
+fi
 
-bash
-
+[ ! `ls ${wrkdir}/initramfs/init 2>/dev/null` ] && exit_error "[E] Invalid initramfs image (init binary not found)"
+# use real path of the init (in case its a symlink)
+initfile=${wrkdir}/initramfs/init
+[ -L $initfile ] && initfile=${wrkdir}/initramfs/`readlink $initfile`
 # check if this kernel is patched already with z4build
-if [ `cmp -s ${srcdir}/initramfs/z4mod/init ${wrkdir}/initramfs/init; echo $?` -eq 0 ]; then
+#ls -l ${srcdir}/initramfs/z4mod/bin/init $initfile
+if cmp -s ${srcdir}/initramfs/z4mod/bin/init $initfile; then
 	exit_error "[E] This kernel is already patched with z4build"
 fi
-# use real path of the init (in case its a symlink)
-initfile=`realpath ${wrkdir}/initramfs/init`
+
 #elf_signature=`file -b ${initfile}`
 #if [ "${elf_signature:0:3}" == "ELF" ]; then
-if [ -f ${initfile} ]; then
-	printhl "[I] Searching a replacement to inject z4mod init"
-	# calculate how much size z4mod uses (init script and tiny busybox if needed)
-	replace_size=$((4096+`stat -c%s ${srcdir}/initramfs/z4mod/bin/init`))
-	replace_size=$((replace_size+`stat -c%s ${srcdir}/initramfs/z4mod/bin/busybox`))
-	# find a file big enough to replace our init script/busybox	
-	replacement_file=""
-	for file in `find ${wrkdir}/initramfs/ -type f ! -name *.ko`; do
-		size=`stat -c%s $file`
-		if [ $size -gt $replace_size ]; then
-			replacement_file=$file
-			break
-		fi
-	done
-
-	[ "$replacement_file" == "" ] && exit_error "[E] Could not find a valid replacement file (needed: $replace_size)"
-	printhl "[I] Found replacement: `basename $replacement_file` (`stat -c%s $replacement_file`)"
-	mv $replacement_file ${wrkdir}/`basename $replacement_file`
-
-	printhl "[I] Replacing init binary"
-	# move original init to sbin
-	mv ${initfile} ${wrkdir}/initramfs/sbin/init
-	# and place our init wrapper instead of /init
-	cp -a ${srcdir}/initramfs/z4mod ${wrkdir}/initramfs/
-	ln -s /z4mod/bin/init ${initfile}
-	# add onetime service to run post init scripts at the end of init.rc
-	echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
-else
+if [ ! -f ${initfile} -a ! -L ${initfile} ]; then
 	exit_error "[E] Could not find a valid /init executable in initramfs"
 fi
+
+printhl "[I] Searching a replacement to inject z4mod init"
+# calculate how much size z4mod uses (init script and tiny busybox if needed)
+replace_size=$((4096+`stat -c%s ${srcdir}/initramfs/z4mod/bin/init`))
+replace_size=$((replace_size+`stat -c%s ${srcdir}/initramfs/z4mod/bin/busybox`))
+
+# find a file big enough to replace our init script/busybox	
+#replacement_file=""
+#for file in `find ${wrkdir}/initramfs/ -type f ! -name *.ko`; do
+#	size=`stat -c%s $file`
+#	if [ $size -gt $replace_size ]; then
+#		replacement_file=$file
+#		break
+#	fi
+#done
+#[ "$replacement_file" == "" ] && exit_error "[E] Could not find a valid replacement file (needed: $replace_size)"
+
+# find biggest file
+replacement_file=`find ${wrkdir}/initramfs/ ! -name *.ko -type f -exec du -b {} \; | sort -rn | head -n1 | awk '{print $2}'`
+replacement_size=`stat -c%s $replacement_file`
+[ $replace_size -gt $replacement_size ] && exit_error "[E] Could not find a valid replacement file (needed: $replace_size)"
+
+printhl "[I] Found replacement: `basename $replacement_file` (`stat -c%s $replacement_file`)"
+mv $replacement_file ${wrkdir}/`basename $replacement_file`
+
+printhl "[I] Replacing init binary"
+# move original init to sbin
+mv ${initfile} ${wrkdir}/initramfs/sbin/init
+# incase real init was a symlink...
+rm -f ${wrkdir}/initramfs/init
+# and place our init wrapper instead of /init
+cp -a ${srcdir}/initramfs/z4mod ${wrkdir}/initramfs/
+ln -s /z4mod/bin/init ${wrkdir}/initramfs/init
+# add onetime service to run post init scripts at the end of init.rc
+echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
 
 ###############################################################################
 #
@@ -209,7 +221,7 @@ rm -f new_zImage
 ${KERNEL_REPACKER} ${zImage} ${wrkdir}/initramfs.img
 popd >/dev/null
 if [ ! -f ${wrkdir}/new_zImage ]; then
-        exit_error "[E] Failed building new zImage"
+	exit_error "[E] Failed building new zImage"
 fi
 oldsize=`ls -l $zImage | awk '{print $5}'`
 newsize=`ls -l ${wrkdir}/new_zImage | awk '{print $5}'`
@@ -258,7 +270,7 @@ for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
 cp ${srcdir}/z4version ${wrkdir}/initramfs/z4mod/
 
 printhl "[I] Injecting z4mod compressed image"
-(cd ${wrkdir}/initramfs/; tar zcf ${wrkdir}/z4mod.tar.gz .)
+(cd ${wrkdir}/initramfs/; tar zcf ${wrkdir}/z4mod.tar.gz --owner root --group root .)
 cat ${wrkdir}/z4mod.tar.gz >> $zImage
 
 rm -rf ${wrkdir}

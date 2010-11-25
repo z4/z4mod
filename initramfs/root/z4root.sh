@@ -1,5 +1,6 @@
 #!/system/bin/sh
 
+chown root.root /sbin/su
 chmod 6755 /sbin/su
 # install Superuser.apk
 if [ ! -f /system/app/Superuser.apk ]; then
