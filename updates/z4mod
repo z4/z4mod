@@ -94,10 +94,12 @@ logstring() {
 	set -x
 }
 
-[ "$splashfile" != "" ] && cat $splashfile | busybox gunzip -c > /dev/graphics/fb0
-logstring "z4conversion system initialized"
-logstring "Starting z4mod-$version '$3'"
-logstring "Convert on /$1 (/dev/block/$2)"
+if [ "$splashfile" != "" ]; then
+	cat $splashfile | busybox gunzip -c > /dev/graphics/fb0
+	logstring "z4conversion system initialized"
+	logstring "Starting z4mod-$version '$3'"
+	logstring "Convert on /$1 (/dev/block/$2)"
+fi
 
 # check we are running under a z4mod-patched initramfs/kernel
 [ ! -f /z4mod/z4version ] && halt "Your kernel is not z4mod - /z4mod/z4version is missing!"
@@ -126,7 +128,7 @@ logstring "Format command: $format_cmd"
 
 # fix mtab errors
 busybox mount -o remount,rw /
-busybox mount -o remount,rw /system
+busybox mount -o remount,rw,check=no,llw /system
 busybox ln -s /proc/mounts /etc/mtab
 
 # /system takes special handling before we can unmount it

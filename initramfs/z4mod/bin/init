@@ -28,7 +28,7 @@ done
 #	insmod $mod
 #done
 
-# create all device nodes
+# create all block device nodes
 mknod /dev/null c 1 3
 for dev in `ls -A1d /sys/block/*/dev /sys/block/*/*/dev 2>/dev/null`; do
 	devname=`echo $dev | cut -f 5 -d"/"`
@@ -36,6 +36,7 @@ for dev in `ls -A1d /sys/block/*/dev /sys/block/*/*/dev 2>/dev/null`; do
 	devparams=`sed 's/:/ /' $dev`
 	mknod /dev/block/$devname b $devparams
 done
+ls /dev/block/
 set -x
 
 # extract z4mod initramfs
