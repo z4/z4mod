@@ -13,7 +13,6 @@ if [ $$ != 1 ]; then
 	exit 0
 fi
 
-set -x
 exec >> /z4mod/log/init 2>&1
 export PATH=/z4mod/bin:/:/sbin:/system/xbin:/system/bin:$PATH
 
@@ -24,6 +23,10 @@ mount -t sysfs none /sys
 for mod in `grep -o 'insmod .*' /init.rc | cut -f 2 -d " "`; do
 	insmod $mod
 done
+# and insmod whatever is left (is that needed?)
+#for mod in `ls /modules/* /lib/modules/*`; do
+#	insmod $mod
+#done
 
 # create all device nodes
 mknod /dev/null c 1 3
@@ -33,9 +36,10 @@ for dev in `ls -A1d /sys/block/*/dev /sys/block/*/*/dev 2>/dev/null`; do
 	devparams=`sed 's/:/ /' $dev`
 	mknod /dev/block/$devname b $devparams
 done
+set -x
 
 # extract z4mod initramfs
-offset="`dd if=/dev/block/bml7 bs=4 skip=11 count=1 2>/dev/nulli | od -l`"
+offset="`dd if=/dev/block/bml7 bs=4 skip=11 count=1 2>/dev/null | od -l`"
 offset=`echo $offset | cut -f 2 -d" "`
 dd if=/dev/block/bml7 bs=$offset skip=1 | tar xz -C /
 
@@ -50,6 +54,7 @@ else
 	mount -r $system /system -o errors=continue,noatime,nodiratime
 fi
 ln -s /system/etc/ /etc
+ln -s /proc/mounts /etc/mtab
 
 # execute pre-init scripts
 for file in `ls /etc/init.d/P*`; do /system/bin/sh "$file"; done

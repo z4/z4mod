@@ -4,7 +4,7 @@
 # backup a partition, format, and restore
 #
 export PATH=/z4mod/bin:/:/sbin:/system/xbin:/system/bin:$PATH
-version=0.12
+version=0.12.2
 
 # we make sure we have /sdcard mounted
 sdcardmounted=`busybox grep sdcard /proc/mounts`
@@ -22,8 +22,13 @@ set -x
 
 halt()
 {
+	errmsg="$1"
+	[ "$errmsg" == "" ] && errmsg="No error specified"
+	logstring "$errmsg"
 	busybox umount /${partition}
 	[ "$sdcardmounted" == "" ] && busybox umount /sdcard
+	logstring "Rebooting in 15 seconds..."
+	sleep 15
 	exit 1
 }
 
@@ -36,32 +41,82 @@ busybox cat <<EOF
 ###############################################################################
 EOF
 
-# check we are running under a z4mod-patched initramfs/kernel
-[ ! -f /z4mod/z4version ] && halt
-
 partition="$1"
 devblock=/dev/block/"$2"
 filesystem="$3"
+splashfile="$4"
+fontfile="$5"
+
+fontwidth=8
+fontheight=14
+
+drawchar() {
+	local i=0
+	local ch=`echo "$1" | od -t d1 | awk '{print $2}'`
+	local x=$2
+	local y=$3
+	while [ $i -lt $fontheight ]; do
+		seek=$((1920*y+1920*i+x*4))
+		skip=$((ch*4*fontwidth*fontheight+i*4*fontwidth))
+		count=$((4*fontwidth))
+		dd bs=1 if=$fontfile skip=$skip seek=$seek count=$count of=/dev/graphics/fb0
+		i=$((i+1))
+	done
+}
+
+drawstring() {
+	local str=$1
+	local x=$2
+	local y=$3
+	echo $str | awk -v ORS="" '{ gsub(/./,"&\n") ; print }' | \
+	while read char
+	do
+		drawchar "$char" $x $y
+		x=$((x+fontwidth))
+	done
+}
+
+x_log=44
+y_log=210
+
+logstring() {
+	[ "$fontfile" == "" ] && return
+	set +x
+	local str=$1
+	drawstring "$str" "$x_log" "$y_log" > /dev/null 2>&1
+	y_log=$((y_log+fontheight))
+	[ $y_log -gt 600 ] && y_log=210
+	set -x
+}
+
+[ "$splashfile" != "" ] && dd if=$splashfile of=/dev/graphics/fb0
+logstring "z4conversion system initialized"
+logstring "Starting z4mod-$version '$3' convert on /$1 (/dev/block/$2)"
+
+# check we are running under a z4mod-patched initramfs/kernel
+[ ! -f /z4mod/z4version ] && halt "Your kernel is not z4mod - /z4mod/z4version is missing!"
 
 if [ "${filesystem:0:3}" == "ext" ]; then
 	[ `busybox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
 elif [ "$filesystem" == "jfs" ]; then
 	[ `busybox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
 elif [ "$filesystem" == "rfs" ]; then
-	#format_cmd=fat.format
-	format_cmd=mkfs.vfat
+	format_cmd=fat.format
+	#format_cmd=mkfs.vfat
 else
 	# defaulting to 'auto' - check which filesystem are supported
-        [ `busybox grep jfs /proc/filesystems` ] && filesystem=jfs
+	[ `busybox grep jfs /proc/filesystems` ] && filesystem=jfs
 	[ `busybox grep ext2 /proc/filesystems` ] && filesystem=ext2
 	[ `busybox grep ext3 /proc/filesystems` ] && filesystem=ext3
 	[ `busybox grep ext4 /proc/filesystems` ] && filesystem=ext4
 	format_cmd=mkfs.${filesystem}
 fi
 
+logstring "Format command: $format_cmd"
+
 # check we have all the tools needed
-[ "${format_cmd}" == "" ] && halt
-[ `busybox which ${format_cmd}` ] || halt
+[ "${format_cmd}" == "" ] && halt "No format command found for that filesystem!"
+[ `busybox which ${format_cmd}` ] || halt "Format command $format_cmd does not exist in path" 
 
 # fix mtab errors
 busybox mount -o remount,rw /
@@ -78,9 +133,11 @@ fi
 
 # get current filesystem
 currentfs=`busybox grep -m1 "/${partition}" /etc/fstab | busybox awk '{print $3}'`
-[ "${currentfs}" == "${filesystem}" ] && halt
+#[ "${currentfs}" == "${filesystem}" ] && halt
 # defaulting to rfs
 [ "${currentfs}" == "" ] && currentfs="rfs"
+
+logstring "Current filesystem: $currentfs"
 
 # we unmount just to make sure target is not mounted already
 busybox umount /${partition}
@@ -88,53 +145,44 @@ busybox umount /${partition}
 # we must mount target with propriate mount parameters
 if [ "${currentfs}" == "rfs" ]; then
 	# mount using RFS mount parameters - otherwise it will be mounted as FAT, which is bad.
-	busybox mount -t $currentfs ${devblock} /${partition} -o nosuid,nodev,check=no || halt 
+	busybox mount -t $currentfs ${devblock} /${partition} -o nosuid,nodev,check=no || halt "Could not mount existing /${partition} as rfs"
 	#mount -o nosuid,nodev,check=no -t rfs ${devblock} /${partition}
 else
-	# mount target as ext2/3/4
-	busybox mount -t $currentfs ${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || halt
+	# mount target as ext2/3/4, defaults to rfs
+	busybox mount -t $currentfs ${devblock} /${partition} -o nosuid,nodev,noatime,nodiratime,errors=continue || busybox mount -t rfs ${devblock} /${partition} -o nosuid,nodev,check=no || halt "Could not mount /${partition} as ${currentfs} or as rfs"
 fi
+
+logstring "${devblock} mounted on /${partition} successfully"
 
 # remove old backup if any
 busybox rm -f /sdcard/${partition}.z4mod.tar
 
 # check for free space (using such a complicated command to overcome a 'df' bug with long lines)
 # get free space on /sdcard
-free_space=`busybox df /dev/block/mmcblk0p1 | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $3}'`
+free_space=`busybox df ${sdcarddev} | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $3}'`
 # get used space on target
 backup_size=`busybox df ${devblock} | busybox tail -n1 | busybox sed 's|/[^ ]*||g' | busybox awk '{print $2}'`
-[ $backup_size -ge $free_space ] && halt
+[ $backup_size -ge $free_space ] && halt "You do not have enough free space on ${sdcarddev}. $backup_size is required."
 
 # backup target - exit on failure
 busybox rm /sdcard/${partition}.z4mod.tar
 busybox rm /data/rfs.log
+logstring "Backing up data on /${partition} to /sdcard/${partition}.z4mod.tar"
 busybox tar cf /sdcard/${partition}.z4mod.tar /${partition} 
 # for debug:
 busybox echo $?
 
 # umount - exit on failure, no harm is done
-busybox umount /${partition} || halt
-
-# for 'data' partition we make sure the filesystem type is flagged in the partition table
-if [ "${partition}" == "data" ]; then
-	# we change fs-type manually in the partition table
-	if [ "${filesystem}" == "rfs" ]; then
-		# flag partition as fat32 for rfs
-		echo -en "\x0C" | busybox dd of=/dev/block/mmcblk0 seek=$((0x1d2))
-	else
-		# flag partition as linux filesystem
-		echo -en "\x83" | busybox dd of=/dev/block/mmcblk0 seek=$((0x1d2))
-	fi
-fi
+busybox umount /${partition} || halt "Could not unmount /${partition}"
 
 # Format partition with optimized settings (TODO: restore on error)
 if [ "${filesystem}" == "rfs" ]; then
+	logstring "Formatting ${devblock} as RFS"
 	mountopt="llw,check=no,nosuid,nodev"
-	#${format_cmd} -F 32 -S 4096 -s 4 ${devblock}
+	${format_cmd} -l "MSWIN4.1" -F 32 -S 4096 -s 4 ${devblock}
 	#${format_cmd} ${devblock}
-	mkfs.vfat ${devblock}
-	fat.format -F 32 -S 4096 -s 4 ${devblock}
 elif [ "${filesystem}" == "jfs" ]; then
+	logstring "Formatting ${devblock} as JFS"
 	mountopt="nosuid,nodev,noatime,nodiratime,errors=continue"
 	${format_cmd} -L ${partition} -q ${devblock}
 else
@@ -145,18 +193,20 @@ else
 	else
 		mountopt="nosuid,nodev,noatime,nodiratime,errors=continue,nobh,data=writeback,barrier=0,noauto_da_alloc"
 	fi
+	logstring "Formatting ${devblock} as ${filesystem}"
 	# TODO: "-E lazy_itable_init=1 -O sparse_super,uninit_bg" doesnt work on ext2. maybe busybox mount issue?
 	${format_cmd} -q -L ${partition} -b 4096 -m 0 -F ${devblock}
 	# tune the filesystem - check every 100 mounts or 30 days
 	tune2fs -c 100 -i 30d -m 0 ${devblock}
 fi
 # mount the new filesystem - exit on failure (TODO: restore on error)
-busybox mount -t ${filesystem} ${devblock} /${partition} -o $mountopt || halt
+busybox mount -t ${filesystem} ${devblock} /${partition} -o $mountopt || halt "Could not mount ${devblock} as ${filesystem}!"
 
 # this is for the logging...
 busybox mount | busybox grep ${devblock}
 
 # extract our data back to the new filesystem
+logstring "Restoring backup from /sdcard/${partition}.z4mod.tar"
 busybox tar xf /sdcard/${partition}.z4mod.tar -C /
 ret=$?
 [ $ret == 0 ] && busybox rm /sdcard/${partition}.z4mod.tar
@@ -171,6 +221,9 @@ busybox mount -o remount,ro /system
 # umount
 busybox umount ${devblock}
 [ "$sdcardmounted" == "" ] && busybox umount /sdcard
+
+logstring "Conversion Completed!"
+sleep 5
 
 exit $ret
 
