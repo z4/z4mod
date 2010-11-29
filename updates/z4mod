@@ -1,10 +1,8 @@
-#!/sbin/busybox sh
-#
 # z4mod, by Elia Yehuda, (c) 2010, GPLv2
 # backup a partition, format, and restore
 #
 export PATH=/z4mod/bin:/:/sbin:/system/xbin:/system/bin:$PATH
-version=0.12.2
+version=$version
 
 # we make sure we have /sdcard mounted
 sdcardmounted=`busybox grep sdcard /proc/mounts`
@@ -47,16 +45,16 @@ filesystem="$3"
 splashfile="$4"
 fontfile="$5"
 
-fontwidth=8
-fontheight=14
+fontwidth=12
+fontheight=18
 
 drawchar() {
-	local i=0
-	local ch=`echo "$1" | od -t d1 | awk '{print $2}'`
-	local x=$2
-	local y=$3
+	i=0
+	ch=`echo "$1" | od -t d1 | awk '{print $2}'`
+	dx=$2
+	dy=$3
 	while [ $i -lt $fontheight ]; do
-		seek=$((1920*y+1920*i+x*4))
+		seek=$((1920*dy+1920*i+dx*4))
 		skip=$((ch*4*fontwidth*fontheight+i*4*fontwidth))
 		count=$((4*fontwidth))
 		dd bs=1 if=$fontfile skip=$skip seek=$seek count=$count of=/dev/graphics/fb0
@@ -65,15 +63,25 @@ drawchar() {
 }
 
 drawstring() {
-	local str=$1
-	local x=$2
-	local y=$3
-	echo $str | awk -v ORS="" '{ gsub(/./,"&\n") ; print }' | \
-	while read char
-	do
+	str=$1
+	x=$x_log
+	y="$y_log"
+	i=1
+	while char="`expr substr $str $i 1`"; do 
+		i=$((i+1))
 		drawchar "$char" $x $y
 		x=$((x+fontwidth))
+		if [ "$char" == " " -o "$char" == "/" ]; then
+			if [ $x -gt 330 ]; then
+				y_log=$((y_log+fontheight))
+				y=$((y+fontheight))
+				[ $y_log -gt 590 ] && y_log=210
+				x=44
+			fi
+		fi
 	done
+	y_log=$((y_log+fontheight))
+	[ $y_log -gt 590 ] && y_log=210
 }
 
 x_log=44
@@ -82,21 +90,19 @@ y_log=210
 logstring() {
 	[ "$fontfile" == "" ] && return
 	set +x
-	local str=$1
-	drawstring "$str" "$x_log" "$y_log" > /dev/null 2>&1
-	y_log=$((y_log+fontheight))
-	[ $y_log -gt 600 ] && y_log=210
+	drawstring "$1" > /dev/null 2>&1
 	set -x
 }
 
-[ "$splashfile" != "" ] && dd if=$splashfile of=/dev/graphics/fb0
+[ "$splashfile" != "" ] && cat $splashfile | busybox gunzip -c > /dev/graphics/fb0
 logstring "z4conversion system initialized"
-logstring "Starting z4mod-$version '$3' convert on /$1 (/dev/block/$2)"
+logstring "Starting z4mod-$version '$3'"
+logstring "Convert on /$1 (/dev/block/$2)"
 
 # check we are running under a z4mod-patched initramfs/kernel
 [ ! -f /z4mod/z4version ] && halt "Your kernel is not z4mod - /z4mod/z4version is missing!"
 
-if [ "${filesystem:0:3}" == "ext" ]; then
+if [ "$filesystem" == "ext2" -o "$filesystem" == "ext3" -o "$filesystem" == "ext4" ]; then
 	[ `busybox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
 elif [ "$filesystem" == "jfs" ]; then
 	[ `busybox grep ${filesystem} /proc/filesystems` ] && format_cmd=mkfs.${filesystem}
@@ -105,7 +111,7 @@ elif [ "$filesystem" == "rfs" ]; then
 	#format_cmd=mkfs.vfat
 else
 	# defaulting to 'auto' - check which filesystem are supported
-	[ `busybox grep jfs /proc/filesystems` ] && filesystem=jfs
+        [ `busybox grep jfs /proc/filesystems` ] && filesystem=jfs
 	[ `busybox grep ext2 /proc/filesystems` ] && filesystem=ext2
 	[ `busybox grep ext3 /proc/filesystems` ] && filesystem=ext3
 	[ `busybox grep ext4 /proc/filesystems` ] && filesystem=ext4

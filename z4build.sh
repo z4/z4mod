@@ -201,7 +201,6 @@ if [ ! -z "$from_zImage" ]; then
 	(cd ${wrkdir}/initramfs.tmp/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
 	# TODO: instead of exiting, since we're replacing anyway, get offset of z4mod secondary initramfs,
 	# extract it, and remove it from the zImage...
-bash
 	if cmp -s ${srcdir}/initramfs/z4mod/bin/init ${wrkdir}/initramfs.tmp/z4mod/bin/init; then
 		exit_error "[E] This kernel is already patched with z4build"
 	fi
@@ -228,11 +227,11 @@ if [ ! `ls $initfile 2>/dev/null` ]; then
 	exit_error "[E] Invalid initramfs image (init binary not found)"
 fi
 if [ -L $initfile ]; then
-	exit_error "[E] Non-stock initramfs found1"
+	exit_error "[E] Non-stock initramfs found (linked init)"
 fi
 elf_signature=`file -b ${initfile}`
 if [ "${elf_signature:0:3}" != "ELF" ]; then
-	exit_error "[E] Non-stock initramfs found2"
+	exit_error "[E] Non-stock initramfs found (non-elf init)"
 fi
 # check if this kernel is patched already with z4build
 if cmp -s ${srcdir}/initramfs/z4mod/bin/init $initfile; then
