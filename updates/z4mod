@@ -66,9 +66,9 @@ drawstring() {
 	str=$1
 	x=$x_log
 	y="$y_log"
-	i=1
-	while char="`expr substr $str $i 1`"; do 
-		i=$((i+1))
+	j=1
+	while char="`expr substr "$str" $j 1`"; do 
+		j=$((j+1))
 		drawchar "$char" $x $y
 		x=$((x+fontwidth))
 		if [ "$char" == " " -o "$char" == "/" ]; then
@@ -80,7 +80,7 @@ drawstring() {
 			fi
 		fi
 	done
-	y_log=$((y_log+fontheight))
+	y_log=$((y_log+fontheight*3/2))
 	[ $y_log -gt 590 ] && y_log=210
 }
 
@@ -92,13 +92,13 @@ logstring() {
 	set +x
 	drawstring "$1" > /dev/null 2>&1
 	set -x
+	#drawstring "$1"
 }
 
 if [ "$splashfile" != "" ]; then
 	cat $splashfile | busybox gunzip -c > /dev/graphics/fb0
 	logstring "z4conversion system initialized"
-	logstring "Starting z4mod-$version '$3'"
-	logstring "Convert on /$1 (/dev/block/$2)"
+	logstring "Starting z4mod-$version '$3' - Convert on /$1 (/dev/block/$2)"
 fi
 
 # check we are running under a z4mod-patched initramfs/kernel

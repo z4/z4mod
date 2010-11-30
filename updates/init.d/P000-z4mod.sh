@@ -20,7 +20,7 @@ busybox mknod /dev/zero c 1 5
 busybox sh /system/xbin/z4mod data mmcblk0p2 ext2
 
 # self-destruction
-busybox mount -o remount,rw /system
+busybox mount -o remount,rw,check=no,llw /system
 busybox rm -f `busybox realpath $0`
 busybox rm -f /system/convertsplash
 busybox mount -o remount,ro /system
