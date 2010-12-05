@@ -47,6 +47,7 @@ printerr() {
 
 exit_error() {
 	printerr "$1"
+#bash
 	rm -rf ${wrkdir}
 	exit 1
 }
@@ -65,37 +66,6 @@ exit_usage() {
 	exit 1
 }
 
-xget_initramfs_img() {
-	local zImagex=$1
-	# find start of gziped kernel object in the zImage file:
-	pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImagex | cut -f 1 -d :`
-	printhl "[I] Extracting kernel image from $zImagex (start = $pos)"
-	dd status=noxfer if=$zImagex bs=$pos skip=1 2>/dev/null| gunzip -q > ${wrkdir}/kernel.img
-
-	# find start of the "cpio" initramfs image inside the kernel object:
-	# ASCII cpio header starts with '070701'
-	printhl "[I] Searching for cpio start position"
-	start=`grep -F -a -b -m 1 --only-matching '070701' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
-	if [ "$start" == "" ]; then
-		printhl "[I] Searching for gzipped start position"
-		# Determine if the cpio inside the zImage is gzipped
-		gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img`
-		for possible_gzip_start in $gzip_start_arr; do
-			possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
-			dd status=noxfer if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 2>/dev/null| gunzip -q > ${wrkdir}/cpio.img
-			if [ $? -ne 1 ]; then
-				printhl "[I] Extracting gzipped initramfs image from kernel (start = $possible_gzip_start)"
-				mv ${wrkdir}/cpio.img ${wrkdir}/initramfs.img
-				return
-			fi
-		done
-		exit_error "[E] Could not find a valid initramfs image"
-	fi
-
-	printhl "[I] Extracting initramfs image from kernel (start = $start)"
-	dd status=noxfer if=${wrkdir}/kernel.img bs=$start skip=1 > ${wrkdir}/initramfs.img 2>/dev/null
-}
-
 # extract initramfs from zImage and set start/end offsets
 get_initramfs_img() 
 {
@@ -103,29 +73,40 @@ get_initramfs_img()
 	pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImagex | cut -f 1 -d :`
 	printhl "[I] Extracting kernel image from $zImagex (start = $pos)"
 	dd status=noxfer if=$zImagex bs=$pos skip=1 2>/dev/null| gunzip -q > ${wrkdir}/kernel.img
-
-	printhl "[I] Searching for a valid CPIO archive"
-	start=`grep -F -a -b -m 1 --only-matching '070701' ${wrkdir}/kernel.img | head -1 | cut -f 1 -d :`
-	end=`$FINDCPIO ${wrkdir}/kernel.img | cut -f 2`
-	if [ "$start" == "" -o "$end" == "" -o $start -gt $end ]; then
-		gzip_start_arr=`grep -F -a -b --only-matching $'\x1F\x8B\x08' ${wrkdir}/kernel.img`
-		for possible_gzip_start in $gzip_start_arr; do
-			possible_gzip_start=`echo $possible_gzip_start | cut -f 1 -d :`
-			#dd status=noxfer if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 2>/dev/null| gunzip -q > ${wrkdir}/initramfs.img
-		        dd status=noxfer if=${wrkdir}/kernel.img bs=$possible_gzip_start skip=1 of=${wrkdir}/cpio.img 2>/dev/null
-			gunzip -qf ${wrkdir}/cpio.img > ${wrkdir}/initramfs.img
-			if [ $? -ne 1 ]; then
-				is_gzipped="TRUE"
-				start=$possible_gzip_start
-				end=`$FINDZEROS ${wrkdir}/cpio.img | cut -f 2`
-				printhl "[I] Compressed (gzip) CPIO detected at $start ~ $end"
-				return
-			fi
-		done
-		exit_error "[E] Could not find a valid CPIO archive"
+	printhl "[I] Extracting CPIO archive from kernel image"
+	startend=`$MKIMGAGE ${wrkdir}/kernel.img ${wrkdir}/tmp.kernel.img -r ${wrkdir}/initramfs.img | tail -n1`
+	start=$((`echo $startend | cut -d' ' -f 4`))
+	end=$((`echo $startend | cut -d' ' -f 5`))
+	if [ "`file ${wrkdir}/initramfs.img | cut -d' ' -f2`" == "gzip" ]; then
+		printhl "[I] Compressed CPIO detected (gzip) ($start/$end)"
+		cat ${wrkdir}/initramfs.img | gunzip -q > ${wrkdir}/initramfs.img.tmp
+		mv ${wrkdir}/initramfs.img.tmp ${wrkdir}/initramfs.img
+	elif [ "`dd if=${wrkdir}/initramfs.img bs=4 count=1 2>/dev/null| od -X | head -n1 | cut -d' ' -f2`" == "0000005d" ]; then
+		printhl "[I] Compressed CPIO detected (lzma) ($start/$end)"
+		lzma -S img -d ${wrkdir}/initramfs.img
+		mv ${wrkdir}/initramfs. ${wrkdir}/initramfs.img
+	else
+		printhl "[I] Non-compressed CPIO detected ($start/$end)"
 	fi
-	dd status=noxfer if=${wrkdir}/kernel.img bs=$start skip=1 > ${wrkdir}/initramfs.img 2>/dev/null
-	printhl "[I] Non compressed CPIO detected at $start ~ $end"
+}
+
+validate_initramfs()
+{
+	local xinitfile=$1
+	if [ ! `ls $xinitfile 2>/dev/null` ]; then
+		exit_error "[E] Invalid initramfs image (init binary not found)"
+	fi
+	if [ -L $xinitfile ]; then
+		exit_error "[E] Non-stock initramfs found (linked init)"
+	fi
+	elf_signature=`file -b ${xinitfile}`
+	if [ "${elf_signature:0:3}" != "ELF" ]; then
+		exit_error "[E] Non-stock initramfs found (non-elf init)"
+	fi
+	# check if this kernel is patched already with z4build
+	if cmp -s ${srcdir}/initramfs/z4mod/bin/init $xinitfile; then
+		exit_error "[E] This kernel is already patched with z4build"
+	fi
 }
 
 ###############################################################################
@@ -152,8 +133,7 @@ fi
 # We can start working
 wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
 KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
-FINDZEROS=$srcdir/repacker/findzeros.pl
-FINDCPIO=$srcdir/repacker/findcpio.pl
+MKIMGAGE=$srcdir/repacker/mkimgage
 version=`cat ${srcdir}/z4version`
 mkdir -p ${wrkdir}/initramfs/{system,sbin,dev/block,z4mod/log}
 
@@ -192,18 +172,22 @@ while [ "$*" ]; do
 done
 
 if [ ! -z "$from_zImage" ]; then
-	get_initramfs_img `realpath $from_zImage`
-	printhl "[I] Extracting initramfs image (`basename $from_zImage`)"
-	(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
 	get_initramfs_img $zImage
 	printhl "[I] Extracting initramfs image (`basename $zImage`)"
 	mkdir ${wrkdir}/initramfs.tmp
 	(cd ${wrkdir}/initramfs.tmp/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
 	# TODO: instead of exiting, since we're replacing anyway, get offset of z4mod secondary initramfs,
 	# extract it, and remove it from the zImage...
+	#validate_initramfs ${wrkdir}/initramfs.tmp/init
+	if [ ! -f ${wrkdir}/initramfs.tmp/init ]; then
+		exit_error "[E] Invalid initramfs image (init binary not found)"
+	fi
 	if cmp -s ${srcdir}/initramfs/z4mod/bin/init ${wrkdir}/initramfs.tmp/z4mod/bin/init; then
 		exit_error "[E] This kernel is already patched with z4build"
 	fi
+	get_initramfs_img `realpath $from_zImage`
+	printhl "[I] Extracting initramfs image (`basename $from_zImage`)"
+	(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
 	printhl "[I] Copying modules from original initramfs"
 	cp -a ${wrkdir}/initramfs.tmp/lib/modules/* ${wrkdir}/initramfs/lib/modules/
 	cp -a ${wrkdir}/initramfs.tmp/modules/* ${wrkdir}/initramfs/modules/
@@ -223,20 +207,7 @@ initfile=${wrkdir}/initramfs/init
 #if [ ! -f ${initfile} -a ! -L ${initfile} ]; then
 #	exit_error "[E] Could not find a valid /init executable in initramfs"
 #fi
-if [ ! `ls $initfile 2>/dev/null` ]; then
-	exit_error "[E] Invalid initramfs image (init binary not found)"
-fi
-if [ -L $initfile ]; then
-	exit_error "[E] Non-stock initramfs found (linked init)"
-fi
-elf_signature=`file -b ${initfile}`
-if [ "${elf_signature:0:3}" != "ELF" ]; then
-	exit_error "[E] Non-stock initramfs found (non-elf init)"
-fi
-# check if this kernel is patched already with z4build
-if cmp -s ${srcdir}/initramfs/z4mod/bin/init $initfile; then
-	exit_error "[E] This kernel is already patched with z4build"
-fi
+validate_initramfs $initfile
 
 printhl "[I] Replacing init binary"
 # move original init to sbin
