@@ -172,6 +172,9 @@ while [ "$*" ]; do
 done
 
 if [ ! -z "$from_zImage" ]; then
+	get_initramfs_img `realpath $from_zImage`
+	printhl "[I] Extracting initramfs image (`basename $from_zImage`)"
+	(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
 	get_initramfs_img $zImage
 	printhl "[I] Extracting initramfs image (`basename $zImage`)"
 	mkdir ${wrkdir}/initramfs.tmp
@@ -185,9 +188,6 @@ if [ ! -z "$from_zImage" ]; then
 	if cmp -s ${srcdir}/initramfs/z4mod/bin/init ${wrkdir}/initramfs.tmp/z4mod/bin/init; then
 		exit_error "[E] This kernel is already patched with z4build"
 	fi
-	get_initramfs_img `realpath $from_zImage`
-	printhl "[I] Extracting initramfs image (`basename $from_zImage`)"
-	(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
 	printhl "[I] Copying modules from original initramfs"
 	cp -a ${wrkdir}/initramfs.tmp/lib/modules/* ${wrkdir}/initramfs/lib/modules/
 	cp -a ${wrkdir}/initramfs.tmp/modules/* ${wrkdir}/initramfs/modules/
@@ -234,17 +234,6 @@ printhl "[I] Searching a replacement to inject z4mod init"
 replace_size=$((4096+`stat -c%s ${srcdir}/initramfs/z4mod/bin/init`))
 replace_size=$((replace_size+`stat -c%s ${srcdir}/initramfs/z4mod/bin/busybox`))
 
-# find a file big enough to replace our init script/busybox	
-#replacement_file=""
-#for file in `find ${wrkdir}/initramfs/ -type f ! -name *.ko`; do
-#	size=`stat -c%s $file`
-#	if [ $size -gt $replace_size ]; then
-#		replacement_file=$file
-#		break
-#	fi
-#done
-#[ "$replacement_file" == "" ] && exit_error "[E] Could not find a valid replacement file (needed: $replace_size)"
-
 # find biggest file
 replacement_file=`find ${wrkdir}/initramfs/ ! -name *.ko -type f -exec du -b {} \; | sort -rn | head -n1 | awk '{print $2}'`
 replacement_size=`stat -c%s $replacement_file`
@@ -264,17 +253,6 @@ mv $replacement_file ${wrkdir}/`basename $replacement_file`
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
 
-# Check the Image's size
-filesize=`ls -l ${wrkdir}/kernel.img | awk '{print $5}'`
-
-# Split the Image #1 ->  head.img
-printhl "[I] Making head.img ( from 0 ~ $start )"
-dd status=noxfer if=${wrkdir}/kernel.img bs=$start count=1 of=${wrkdir}/head.img 2>/dev/null
-
-# Split the Image #2 ->  tail.img
-printhl "[I] Making a tail.img ( from $end ~ $filesize )"
-dd status=noxfer if=${wrkdir}/kernel.img bs=$end skip=1 of=${wrkdir}/tail.img 2>/dev/null
-
 toobig="TRUE"
 for method in "cat" "gzip -f9c" "lzma -f9c"; do
 	$method ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.full
@@ -290,6 +268,17 @@ if [ "$toobig" == "TRUE" ]; then
 	exit_error "[E] New ramdisk is still too big. Repack failed. $ramdsize > $count"
 fi
 
+# Check the Image's size
+filesize=`ls -l ${wrkdir}/kernel.img | awk '{print $5}'`
+
+# Split the Image #1 ->  head.img
+printhl "[I] Making head.img ( from 0 ~ $start )"
+dd status=noxfer if=${wrkdir}/kernel.img bs=$start count=1 of=${wrkdir}/head.img 2>/dev/null
+
+# Split the Image #2 ->  tail.img
+printhl "[I] Making a tail.img ( from $end ~ $filesize )"
+dd status=noxfer if=${wrkdir}/kernel.img bs=$end skip=1 of=${wrkdir}/tail.img 2>/dev/null
+
 franksize=`du -cb ${wrkdir}/head.img ${wrkdir}/initramfs.img.full | tail -n1 | awk '{print $1}'`
 
 printhl "[I] Merging all kernel sections (head,ramdisk,padding,tail)"
@@ -303,7 +292,7 @@ fi
 
 pushd ${wrkdir} >/dev/null
 rm -f new_zImage
-${KERNEL_REPACKER} ${zImage} ${wrkdir}/initramfs.img
+${KERNEL_REPACKER} ${zImage}
 popd >/dev/null
 if [ ! -f ${wrkdir}/new_zImage ]; then
 	exit_error "[E] Failed building new zImage"
