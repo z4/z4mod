@@ -67,7 +67,7 @@ exit_usage() {
 }
 
 # extract initramfs from zImage and set start/end offsets
-get_initramfs_img() 
+extract_zImage() 
 {
 	local zImagex=$1
 	pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImagex | cut -f 1 -d :`
@@ -109,6 +109,27 @@ validate_initramfs()
 	fi
 }
 
+repack_zImage()
+{
+	franksize=`du -cb ${wrkdir}/head.img ${wrkdir}/initramfs.img.full | tail -n1 | awk '{print $1}'`
+	printhl "[I] Merging all kernel sections (head,ramdisk,padding,tail)"
+	if [ $franksize -lt $end ]; then
+		tempnum=$((end - franksize))
+		dd status=noxfer if=/dev/zero bs=$tempnum count=1 of=${wrkdir}/padding.img 2>/dev/null
+		cat ${wrkdir}/head.img ${wrkdir}/initramfs.img.full ${wrkdir}/padding.img ${wrkdir}/tail.img > $zImage
+	else
+		exit_error "[E] Combined zImage is too large - original end is $end and new end is $franksize"
+	fi
+	pushd ${wrkdir} >/dev/null
+	rm -f new_zImage
+	${KERNEL_REPACKER} ${zImage}
+	popd >/dev/null
+	if [ ! -f ${wrkdir}/new_zImage ]; then
+		exit_error "[E] Failed building new zImage"
+	fi
+	printhl "[I] Saving $zImage"
+	mv ${wrkdir}/new_zImage $zImage
+}
 ###############################################################################
 #
 # checking parameters and initalize stuff
@@ -136,6 +157,9 @@ KERNEL_REPACKER=$srcdir/repacker/kernel_repacker.sh
 MKIMGAGE=$srcdir/repacker/mkimgage
 version=`cat ${srcdir}/z4version`
 mkdir -p ${wrkdir}/initramfs/{system,sbin,dev/block,z4mod/log}
+mkdir -p ${wrkdir}/initramfs/{sbin,cache,data,dbdata}
+chmod 0771 ${wrkdir}/initramfs/data
+chmod 0770 ${wrkdir}/initramfs/cache
 
 printhl "\n[I] z4build ${version} begins, Linuxizing `basename $zImage` ...\n"
 
@@ -172,10 +196,10 @@ while [ "$*" ]; do
 done
 
 if [ ! -z "$from_zImage" ]; then
-	get_initramfs_img `realpath $from_zImage`
+	extract_zImage `realpath $from_zImage`
 	printhl "[I] Extracting initramfs image (`basename $from_zImage`)"
 	(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
-	get_initramfs_img $zImage
+	extract_zImage $zImage
 	printhl "[I] Extracting initramfs image (`basename $zImage`)"
 	mkdir ${wrkdir}/initramfs.tmp
 	(cd ${wrkdir}/initramfs.tmp/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
@@ -192,7 +216,7 @@ if [ ! -z "$from_zImage" ]; then
 	cp -a ${wrkdir}/initramfs.tmp/lib/modules/* ${wrkdir}/initramfs/lib/modules/
 	cp -a ${wrkdir}/initramfs.tmp/modules/* ${wrkdir}/initramfs/modules/
 else
-	get_initramfs_img $zImage
+	extract_zImage $zImage
 	printhl "[I] Extracting initramfs image"
 	(cd ${wrkdir}/initramfs/; cpio --quiet -i --no-absolute-filenames < ${wrkdir}/initramfs.img >/dev/null 2>&1)
 fi
@@ -201,12 +225,16 @@ count=$((end - start))
 if [ $count -lt 0 ]; then
 	exit_error "[E] Could not determine start/end positions of the CPIO archive"
 fi
+
+# Split the Image #1 ->  head.img
+printhl "[I] Dumping head.img from kernel image"
+dd status=noxfer if=${wrkdir}/kernel.img bs=$start count=1 of=${wrkdir}/head.img 2>/dev/null
+
+# Split the Image #2 ->  tail.img
+printhl "[I] Dumping a tail.img from kernel image"
+dd status=noxfer if=${wrkdir}/kernel.img bs=$end skip=1 of=${wrkdir}/tail.img 2>/dev/null
+
 initfile=${wrkdir}/initramfs/init
-# use real path of the init (in case its a symlink)
-#initfile=${wrkdir}/initramfs/`readlink $initfile`
-#if [ ! -f ${initfile} -a ! -L ${initfile} ]; then
-#	exit_error "[E] Could not find a valid /init executable in initramfs"
-#fi
 validate_initramfs $initfile
 
 printhl "[I] Replacing init binary"
@@ -219,15 +247,57 @@ cp -a ${srcdir}/initramfs/z4mod ${wrkdir}/initramfs/
 ln -s /z4mod/bin/init ${wrkdir}/initramfs/init
 # add onetime service to run post init scripts at the end of init.rc
 echo -e "\n# Added by z4mod\nservice z4postinit /init\n  oneshot\n\n" >> ${wrkdir}/initramfs/init.rc
+# store version
+cp ${srcdir}/z4version ${wrkdir}/initramfs/z4mod/
 
 ###############################################################################
-# TODO:
-# compress z4mod initramfs including options
-# check if we can replace
-#   if yes > replace, build kernel, exit
-#   if not > continue as now
+#
+# check if we can replace the initramfs, otherwise only replace the init
+# and add a 2nd initramfs at the end of zImage file
 #
 ###############################################################################
+
+printhl "[I] Testing complete initramfs replacement"
+
+cp -a ${wrkdir}/initramfs ${wrkdir}/initramfs.new
+
+if [ ! -z "$rootfile" ]; then
+	printhl "[I] Adding user rootfile: $rootfile"
+	[ "${rootfile:0-3}" == "tar" ] && tar xv ${rootfile} -C ${wrkdir}/initramfs.new
+	[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs.new
+fi
+# making sure non-stanard stuff works...
+for f in ${wrkdir}/initramfs.new/sbin/*; do chmod +x $f; done
+# add options if any
+for opt in $options; do
+	# copy files of selected option
+	printhl "[I] Adding $opt"
+	cp -a ${srcdir}/initramfs/$opt/* ${wrkdir}/initramfs.new/
+done
+# remove 2nd initramfs extraction from init script
+sed -i '/# extract z4mod initramfs/,/^$/d' ${wrkdir}/initramfs.new/z4mod/bin/init
+
+printhl "[I] Saving patched initramfs.img"
+(cd ${wrkdir}/initramfs.new/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
+
+toobig="TRUE"
+for method in "cat" "gzip -f9c" "lzma -f9c"; do
+	$method ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.full
+	ramdsize=`ls -l ${wrkdir}/initramfs.img.full | awk '{print $5}'`
+	printhl "[I] Current ramdsize using $method : $ramdsize with required size : $count"
+	if [ $ramdsize -le $count ]; then
+		printhl "[I] Method selected: $method"
+		toobig="FALSE"
+		break;
+	fi
+done
+if [ "$toobig" == "FALSE" ]; then
+	repack_zImage
+	rm -rf ${wrkdir}
+	printhl "[I] Done."
+	exit
+fi
+printerr "[W] Failed replacing complete initramfs, using bullet-proof method"
 
 printhl "[I] Searching a replacement to inject z4mod init"
 # calculate how much size z4mod uses (init script and tiny busybox if needed)
@@ -268,40 +338,7 @@ if [ "$toobig" == "TRUE" ]; then
 	exit_error "[E] New ramdisk is still too big. Repack failed. $ramdsize > $count"
 fi
 
-# Check the Image's size
-filesize=`ls -l ${wrkdir}/kernel.img | awk '{print $5}'`
-
-# Split the Image #1 ->  head.img
-printhl "[I] Making head.img ( from 0 ~ $start )"
-dd status=noxfer if=${wrkdir}/kernel.img bs=$start count=1 of=${wrkdir}/head.img 2>/dev/null
-
-# Split the Image #2 ->  tail.img
-printhl "[I] Making a tail.img ( from $end ~ $filesize )"
-dd status=noxfer if=${wrkdir}/kernel.img bs=$end skip=1 of=${wrkdir}/tail.img 2>/dev/null
-
-franksize=`du -cb ${wrkdir}/head.img ${wrkdir}/initramfs.img.full | tail -n1 | awk '{print $1}'`
-
-printhl "[I] Merging all kernel sections (head,ramdisk,padding,tail)"
-if [ $franksize -lt $end ]; then
-	tempnum=$((end - franksize))
-	dd status=noxfer if=/dev/zero bs=$tempnum count=1 of=${wrkdir}/padding.img 2>/dev/null
-	cat ${wrkdir}/head.img ${wrkdir}/initramfs.img.full ${wrkdir}/padding.img ${wrkdir}/tail.img > $zImage
-else
-	exit_error "[E] Combined zImage is too large - original end is $end and new end is $franksize"
-fi
-
-pushd ${wrkdir} >/dev/null
-rm -f new_zImage
-${KERNEL_REPACKER} ${zImage}
-popd >/dev/null
-if [ ! -f ${wrkdir}/new_zImage ]; then
-	exit_error "[E] Failed building new zImage"
-fi
-oldsize=`ls -l $zImage | awk '{print $5}'`
-newsize=`ls -l ${wrkdir}/new_zImage | awk '{print $5}'`
-
-printhl "[I] Saving $zImage"
-mv ${wrkdir}/new_zImage $zImage
+repack_zImage
 
 ###############################################################################
 #
@@ -331,8 +368,6 @@ for opt in $options; do
 	printhl "[I] Adding $opt"
 	cp -a ${srcdir}/initramfs/$opt/* ${wrkdir}/initramfs/
 done
-# store version
-cp ${srcdir}/z4version ${wrkdir}/initramfs/z4mod/
 
 printhl "[I] Injecting z4mod compressed image"
 (cd ${wrkdir}/initramfs/; tar zcf ${wrkdir}/z4mod.tar.gz --owner root --group root .)
