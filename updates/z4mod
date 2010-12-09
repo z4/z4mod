@@ -222,8 +222,10 @@ ret=$?
 busybox touch /system/etc/fstab
 # remove entry if exists already
 busybox sed -i '\,'$devblock',d' /system/etc/fstab
-# add /system/etc/fstab proper info
-echo "$devblock /${partition} $filesystem $mountopt" >> /system/etc/fstab
+#if [ "${filesystem}" != "rfs" ]; then
+	# add /system/etc/fstab proper info
+	echo "$devblock /${partition} $filesystem $mountopt" >> /system/etc/fstab
+#fi
 busybox mount -o remount,ro /system
 
 # umount

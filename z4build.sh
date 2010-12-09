@@ -262,9 +262,15 @@ printhl "[I] Testing complete initramfs replacement"
 cp -a ${wrkdir}/initramfs ${wrkdir}/initramfs.new
 
 if [ ! -z "$rootfile" ]; then
-	printhl "[I] Adding user rootfile: $rootfile"
-	[ "${rootfile:0-3}" == "tar" ] && tar xv ${rootfile} -C ${wrkdir}/initramfs.new
-	[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs.new
+	if [ "${rootfile:0-3}" == "tar" ]; then
+		printhl "[I] Adding user rootfile: $rootfile"
+		tar xv ${rootfile} -C ${wrkdir}/initramfs.new
+	elif [ "${rootfile:0-3}" == "zip" ]; then
+		printhl "[I] Adding user rootfile: $rootfile"
+		unzip ${rootfile} -d ${wrkdir}/initramfs.new
+	else
+		printerr "[W] Could not determine rootfile type, skipping"
+	fi
 fi
 # making sure non-stanard stuff works...
 for f in ${wrkdir}/initramfs.new/sbin/*; do chmod +x $f; done
@@ -342,7 +348,7 @@ repack_zImage
 
 ###############################################################################
 #
-# now pack the z4mod archive and add it to the end of zImage
+# now pack the 2nd part of the z4mod initramfs and add it to the end of zImage
 #
 ###############################################################################
 
@@ -356,9 +362,16 @@ chmod 0770 ${wrkdir}/initramfs/cache
 install -D ${wrkdir}/`basename $replacement_file` $replacement_file
 
 if [ ! -z "$rootfile" ]; then
-	printhl "[I] Adding user rootfile: $rootfile"
-	[ "${rootfile:0-3}" == "tar" ] && tar xv ${rootfile} -C ${wrkdir}/initramfs
-	[ "${rootfile:0-3}" == "zip" ] && unzip ${rootfile} -d ${wrkdir}/initramfs
+	if [ "${rootfile:0-3}" == "tar" ]; then
+		printhl "[I] Adding user rootfile: $rootfile"
+		tar xv ${rootfile} -C ${wrkdir}/initramfs
+	elif [ "${rootfile:0-3}" == "zip" ]; then
+		printhl "[I] Adding user rootfile: $rootfile"
+		unzip ${rootfile} -d ${wrkdir}/initramfs
+	else
+		printerr "[W] Could not determine rootfile type, skipping"
+	fi
+
 fi
 # making sure non-stanard stuff works...
 for f in ${wrkdir}/initramfs/sbin/*; do chmod +x $f; done
