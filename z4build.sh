@@ -145,11 +145,11 @@ fi
 srcdir=`dirname $0`
 srcdir=`realpath $srcdir`
 zImage=`realpath $1`
-shift
 if [ -z $zImage ] || [ ! -f $zImage ]; then
-	printerr "[E] Can't find kernel: $zImage"
+	printerr "[E] Can't find kernel: $zImage ($1)"
 	exit_usage
 fi
+shift
 
 # We can start working
 wrkdir=`pwd`/z4mod-$$-$RANDOM.tmp
@@ -187,7 +187,7 @@ while [ "$*" ]; do
 		shift
 		from_zImage=`realpath $1`
 		if [ ! -f "${from_zImage}" ]; then
-			exit_error "[E] Can't find secondary zImage: $from_zImage"
+			exit_error "[E] Can't find secondary zImage: $from_zImage ($1)"
 		fi
 	else
 		options+="$1 "
@@ -286,23 +286,18 @@ sed -i '/# extract z4mod initramfs/,/^$/d' ${wrkdir}/initramfs.new/z4mod/bin/ini
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs.new/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
 
-toobig="TRUE"
 for method in "cat" "gzip -f9c" "lzma -f9c"; do
 	$method ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.full
 	ramdsize=`ls -l ${wrkdir}/initramfs.img.full | awk '{print $5}'`
 	printhl "[I] Current ramdsize using $method : $ramdsize with required size : $count"
 	if [ $ramdsize -le $count ]; then
 		printhl "[I] Method selected: $method"
-		toobig="FALSE"
-		break;
+		repack_zImage
+		rm -rf ${wrkdir}
+		printhl "[I] Done."
+		exit
 	fi
 done
-if [ "$toobig" == "FALSE" ]; then
-	repack_zImage
-	rm -rf ${wrkdir}
-	printhl "[I] Done."
-	exit
-fi
 printerr "[W] Failed replacing complete initramfs, using bullet-proof method"
 
 printhl "[I] Searching a replacement to inject z4mod init"
