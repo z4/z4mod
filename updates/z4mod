@@ -187,15 +187,22 @@ busybox umount /${partition} || halt "Could not unmount /${partition}"
 # Format partition with optimized settings (TODO: restore on error)
 if [ "${filesystem}" == "rfs" ]; then
 	logstring "Formatting ${devblock} as RFS"
-	mountopt="llw,check=no,nosuid,nodev"
 	case "${partition}" in
-		data)   ${format_cmd} -l "MSWIN4.1" -S 4096 -F 32 -s 4 ${devblock}
+		data)
+			mountopt="check=no,nosuid,nodev"
+			${format_cmd} -l "MSWIN4.1" -S 4096 -F 32 -s 4 ${devblock}
 		;;
-		dbdata) ${format_cmd} -l "MSWIN4.1" -S 4096 -F 16 -s 1 ${devblock}
+		dbdata)
+			mountopt="check=no,nosuid,nodev"
+			${format_cmd} -l "MSWIN4.1" -S 4096 -F 16 -s 1 ${devblock}
 		;;
-		cache)  ${format_cmd} -l "MSWIN4.1" -S 4096 -F 16 -s 1 ${devblock}
+		cache)
+			mountopt="check=no,nosuid,nodev"
+			${format_cmd} -l "MSWIN4.1" -S 4096 -F 16 -s 1 ${devblock}
 		;;
-		system) ${format_cmd} -l "MSWIN4.1" -S 4096 -F 32 -s 1 ${devblock}
+		system)
+			mountopt="llw,check=no"
+			${format_cmd} -l "MSWIN4.1" -S 4096 -F 32 -s 1 ${devblock}
 		;;
 	esac
 	#${format_cmd} ${devblock}
