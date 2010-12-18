@@ -25,8 +25,8 @@ halt()
 	logstring "$errmsg"
 	busybox umount /${partition}
 	[ "$sdcardmounted" == "" ] && busybox umount /sdcard
-	logstring "Rebooting in 15 seconds..."
-	sleep 15
+	logstring "Rebooting in 5 seconds..."
+	sleep 5
 	exit 1
 }
 
@@ -90,6 +90,7 @@ y_log=210
 logstring() {
 	[ "$fontfile" == "" ] && return
 	set +x
+	echo "LOG: $1"
 	drawstring "$1" > /dev/null 2>&1
 	set -x
 	#drawstring "$1"
@@ -97,7 +98,7 @@ logstring() {
 
 if [ "$splashfile" != "" ]; then
 	cat $splashfile | busybox gunzip -c > /dev/graphics/fb0
-	logstring "z4conversion system initialized"
+	logstring "z4mod conversion initialized"
 	logstring "Starting z4mod-$version '$3' - Convert on /$1 (/dev/block/$2)"
 fi
 
@@ -187,7 +188,16 @@ busybox umount /${partition} || halt "Could not unmount /${partition}"
 if [ "${filesystem}" == "rfs" ]; then
 	logstring "Formatting ${devblock} as RFS"
 	mountopt="llw,check=no,nosuid,nodev"
-	${format_cmd} -l "MSWIN4.1" -F 32 -S 4096 -s 4 ${devblock}
+	case "${partition}" in
+		data)   ${format_cmd} -l "MSWIN4.1" -S 4096 -F 32 -s 4 ${devblock}
+		;;
+		dbdata) ${format_cmd} -l "MSWIN4.1" -S 4096 -F 16 -s 1 ${devblock}
+		;;
+		cache)  ${format_cmd} -l "MSWIN4.1" -S 4096 -F 16 -s 1 ${devblock}
+		;;
+		system) ${format_cmd} -l "MSWIN4.1" -S 4096 -F 32 -s 1 ${devblock}
+		;;
+	esac
 	#${format_cmd} ${devblock}
 elif [ "${filesystem}" == "jfs" ]; then
 	logstring "Formatting ${devblock} as JFS"
@@ -233,7 +243,6 @@ busybox umount ${devblock}
 [ "$sdcardmounted" == "" ] && busybox umount /sdcard
 
 logstring "Conversion Completed!"
-sleep 5
 
 exit $ret
 

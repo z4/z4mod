@@ -21,10 +21,6 @@ mount -t sysfs none /sys
 for mod in `grep -o 'insmod .*' /init.rc | cut -f 2 -d " "`; do
 	insmod $mod
 done
-# and insmod whatever is left (is that needed?)
-#for mod in `ls /modules/* /lib/modules/*`; do
-#	insmod $mod
-#done
 
 # create all block device nodes
 mknod /dev/null c 1 3
@@ -34,7 +30,6 @@ for dev in `ls -A1d /sys/block/*/dev /sys/block/*/*/dev 2>/dev/null`; do
 	devparams=`sed 's/:/ /' $dev`
 	mknod /dev/block/$devname b $devparams
 done
-ls /dev/block/
 set -x
 
 # extract z4mod initramfs
