@@ -1,0 +1,39 @@
+#!/z4mod/bin/sh
+PATH=/system/bin:/system/xbin:$PATH
+busybox cp `busybox which busybox` /z4mod/bin/busybox
+/z4mod/bin/busybox --install -s /z4mod/bin/
+PATH=/z4mod/bin:$PATH
+
+mkdir 	/z4mod/lib/
+cp 	/system/z4mod.config /z4mod/config
+cp 	/system/bin/toolbox \
+	/system/bin/sh \
+	/system/bin/log \
+	/system/bin/linker \
+	/system/bin/sync /z4mod/bin/
+cp 	/system/bin/fat.format /z4mod/bin/fat.format.org
+cp 	/system/lib/liblog.so \
+	/system/lib/libc.so \
+	/system/lib/libstdc++.so \
+	/system/lib/libm.so \
+	/system/lib/libdl.so \
+	/system/lib/libcutils.so /z4mod/lib/
+cp 	/system/etc/fstab /z4mod/etc/
+
+umount /system
+ln -s /z4mod/* /system
+
+# for z4splash
+mkdir /dev/graphics/
+mknod /dev/graphics/fb0 c 29 0
+# for fat.format
+mknod -m 666 /dev/random c 1 8 
+mknod -m 666 /dev/urandom c 1 9
+
+while read z4params; do
+	gunzip -c /z4mod/z4convertsplash > /dev/graphics/fb0
+	/z4mod/bin/sh /z4mod/bin/z4mod $z4params /z4mod/z4font
+done < /z4mod/config
+
+sync;sync;toolbox reboot
+

@@ -1,0 +1,45 @@
+# graphical logger, by RyanZA
+
+fontfile="$4"
+
+fontwidth=12
+fontheight=18
+x_log=44
+y_log=210
+
+drawchar() {
+	i=0
+	ch=`echo "$1" | od -t d1 | awk '{print $2}'`
+	dx=$2
+	dy=$3
+	count=$((4*fontwidth))
+	seek=$((1920*dy+dx*4))
+	dd if=$fontfile bs=$count skip=$((ch*fontheight)) | while [ $i -lt $fontheight ]; do
+		dd of=/dev/graphics/fb0 ibs=$count count=1 obs=$seek seek=1
+		seek=$((seek+1920))
+		i=$((i+1))
+	done
+}
+
+drawstring() {
+	str=$*
+	x=$x_log
+	y="$y_log"
+	len="`expr length "$str"`"
+	for j in `seq 1 $len`; do
+		char="`expr substr "$str" $j 1`"
+		drawchar "$char" $x $y
+		x=$((x+fontwidth))
+		if [ "$char" == " " -o "$char" == "/" ]; then
+			if [ $x -gt 330 ]; then
+				y_log=$((y_log+fontheight))
+				y=$((y+fontheight))
+				[ $y_log -gt 590 ] && y_log=210
+				x=$x_log
+			fi
+		fi
+	done
+	y_log=$((y_log+fontheight*3/2))
+	[ $y_log -gt 590 ] && y_log=210
+}
+
