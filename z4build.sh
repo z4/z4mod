@@ -47,7 +47,6 @@ printerr() {
 
 exit_error() {
 	printerr "$1"
-#bash
 	rm -rf ${wrkdir}
 	exit 1
 }
@@ -136,14 +135,15 @@ repack_zImage()
 #
 ###############################################################################
 
+srcdir=`dirname $0`
+srcdir=`realpath $srcdir`
+
 # Making sure we have everything
 if [ $# -eq 0 ]; then
 	printerr "[E] Wrong parameters"
 	exit_usage
 fi
 
-srcdir=`dirname $0`
-srcdir=`realpath $srcdir`
 zImage=`realpath $1`
 if [ -z $zImage ] || [ ! -f $zImage ]; then
 	printerr "[E] Can't find kernel: $zImage ($1)"

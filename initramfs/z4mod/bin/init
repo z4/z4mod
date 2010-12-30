@@ -19,7 +19,10 @@ mount -t proc none /proc
 mount -t sysfs none /sys
 # insmod all modules in the correct order
 for mod in `grep -o 'insmod .*' /init.rc | cut -f 2 -d " "`; do
-	insmod $mod
+	insmod $mod && rm $mod
+done
+for mod in ext2 jbd2 ext4 jbd ext3 jfs; do
+	[ -f /lib/modules/$mod.ko ] && insmod /lib/modules/$mod.ko && rm /lib/modules/$mod.ko
 done
 
 # create all block device nodes
