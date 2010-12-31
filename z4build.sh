@@ -1,7 +1,7 @@
 #!/bin/bash
 ###############################################################################
 #
-# z4build by Elia Yehuda, aka z4ziggy, (c) 2010
+# z4build by Elia Yehuda, aka z4ziggy, (c) 2010-2011
 # part of the z4mod project - a ROM mod without RFS.
 #
 # extracts initramfs from a given zImage, patch it to allow non-RFS mounts,
