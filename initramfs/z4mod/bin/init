@@ -1,6 +1,6 @@
 #!/z4mod/bin/sh
 #
-# z4mod init wrapper, (c) 2010 Elia Yehuda, GPLv2
+# z4mod init wrapper, (C) Elia Yehuda, 2010-2011, GPLv2
 #
 # your standard linux init script - create device nodes, mount partitions
 # and execute /sbin/init

@@ -9,7 +9,4 @@ if [ ! -z "`busybox grep 'bootmode=2' /proc/cmdline`" ]; then
 	mkdir -p /mnt/sdcard
 	mkdir /sd-ext
 	mkdir -p /mnt/sdcard/external_sd
-	mkdir /data
-	mkdir /dbdata
-	mkdir /cache
 fi

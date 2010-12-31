@@ -129,6 +129,21 @@ repack_zImage()
 	printhl "[I] Saving $zImage"
 	mv ${wrkdir}/new_zImage $zImage
 }
+
+compress_initramfs()
+{
+	for method in "cat" "gzip -f9c" "lzma -f9c"; do
+		$method ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.full
+		ramdsize=`ls -l ${wrkdir}/initramfs.img.full | awk '{print $5}'`
+		printhl "[I] Current ramdsize using $method : $ramdsize with required size : $count"
+		if [ $ramdsize -le $count ]; then
+			printhl "[I] Method selected: $method"
+			return 1
+		fi
+	done
+	return 0
+}
+
 ###############################################################################
 #
 # checking parameters and initalize stuff
@@ -286,19 +301,14 @@ sed -i '/# extract z4mod initramfs/,/^$/d' ${wrkdir}/initramfs.new/z4mod/bin/ini
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs.new/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
 
-for method in "cat" "gzip -f9c" "lzma -f9c"; do
-	$method ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.full
-	ramdsize=`ls -l ${wrkdir}/initramfs.img.full | awk '{print $5}'`
-	printhl "[I] Current ramdsize using $method : $ramdsize with required size : $count"
-	if [ $ramdsize -le $count ]; then
-		printhl "[I] Method selected: $method"
-		repack_zImage
-		rm -rf ${wrkdir}
-		printhl "[I] Done."
-		exit
-	fi
-done
-printerr "[W] Failed replacing complete initramfs, using bullet-proof method"
+compress_initramfs
+if [ $? -eq 1 ]; then
+	repack_zImage
+	rm -rf ${wrkdir}
+	printhl "[I] Done."
+	exit
+fi
+printerr "[W] Failed replacing complete initramfs, splitting initramfs"
 
 printhl "[I] Searching a replacement to inject z4mod init"
 # calculate how much size z4mod uses (init script and tiny busybox if needed)
@@ -324,18 +334,8 @@ mv $replacement_file ${wrkdir}/`basename $replacement_file`
 printhl "[I] Saving patched initramfs.img"
 (cd ${wrkdir}/initramfs/; find . | cpio --quiet -R 0:0 -H newc -o > ${wrkdir}/initramfs.img)
 
-toobig="TRUE"
-for method in "cat" "gzip -f9c" "lzma -f9c"; do
-	$method ${wrkdir}/initramfs.img > ${wrkdir}/initramfs.img.full
-	ramdsize=`ls -l ${wrkdir}/initramfs.img.full | awk '{print $5}'`
-	printhl "[I] Current ramdsize using $method : $ramdsize with required size : $count"
-	if [ $ramdsize -le $count ]; then
-		printhl "[I] Method selected: $method"
-		toobig="FALSE"
-		break;
-	fi
-done
-if [ "$toobig" == "TRUE" ]; then
+compress_initramfs
+if [ $? -ne 1 ]; then
 	exit_error "[E] New ramdisk is still too big. Repack failed. $ramdsize > $count"
 fi
 
