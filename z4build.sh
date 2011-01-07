@@ -70,20 +70,38 @@ extract_zImage()
 {
 	local zImagex=$1
 	pos=`grep -F -a -b -m 1 --only-matching $'\x1F\x8B\x08' $zImagex | cut -f 1 -d :`
+
 	printhl "[I] Extracting kernel image from $zImagex (start = $pos)"
 	dd status=noxfer if=$zImagex bs=$pos skip=1 2>/dev/null| gunzip -q > ${wrkdir}/kernel.img
+
 	printhl "[I] Extracting CPIO archive from kernel image"
 	startend=`$MKIMGAGE ${wrkdir}/kernel.img ${wrkdir}/tmp.kernel.img -r ${wrkdir}/initramfs.img | tail -n1`
+
+	if [ ! -f ${wrkdir}/initramfs.img ]; then 
+		rm -rf ${wrkdir}
+		exit_error "[E] Couldn't extract initramfs"
+	fi
+
 	start=$((`echo $startend | cut -d' ' -f 4`))
 	end=$((`echo $startend | cut -d' ' -f 5`))
+	imgsize=`stat -c %s ${wrkdir}/initramfs.img`
+
+	if [ ! $((end - start)) -eq $imgsize ]; then 
+		correct_end=$((start + imgsize))
+		printhl "[W] ${MKIMGAGE} returns bad ending offset ${end} (should be ${correct_end}), fixing..."
+		end=$correct_end
+	fi
+
 	if [ "`file ${wrkdir}/initramfs.img | cut -d' ' -f2`" == "gzip" ]; then
 		printhl "[I] Compressed CPIO detected (gzip) ($start/$end)"
 		cat ${wrkdir}/initramfs.img | gunzip -q > ${wrkdir}/initramfs.img.tmp
 		mv ${wrkdir}/initramfs.img.tmp ${wrkdir}/initramfs.img
+
 	elif [ "`dd if=${wrkdir}/initramfs.img bs=4 count=1 2>/dev/null| od -X | head -n1 | cut -d' ' -f2`" == "0000005d" ]; then
 		printhl "[I] Compressed CPIO detected (lzma) ($start/$end)"
 		lzma -S img -d ${wrkdir}/initramfs.img
 		mv ${wrkdir}/initramfs. ${wrkdir}/initramfs.img
+
 	else
 		printhl "[I] Non-compressed CPIO detected ($start/$end)"
 	fi
