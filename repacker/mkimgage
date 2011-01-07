@@ -1,0 +1,17 @@
+#!/bin/bash
+
+ARCH=$(arch)
+MKIMGAGE="$(realpath $0).${ARCH}"
+
+C_ERR="\033[1;31m"
+C_CLEAR="\033[1;0m"
+
+printerr() {
+	printf "${C_ERR}${1}${C_CLEAR} \n"
+}
+
+if [ ! -x $MKIMGAGE ]; then
+	printerr "[E] mkimgage binary not available for ${ARCH}, please compile it yourself!"
+fi
+
+exec $MKIMGAGE $@
