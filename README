@@ -35,6 +35,14 @@ Howto use:
 
   Patching the kernel.
 
+  Set the cross compiling toolkit prefix
+
+$ export CROSS_COMPILE=/path/to/arm-android-eabi-
+  
+  If building for an ARM v6 device (Samsung Galaxy 3, Spica, etc.)
+
+$ export ARM_VERSION=6
+
 To patch a zImage file and enable non-RFS mounts on it, use:
 
 $ ./z4build.sh
